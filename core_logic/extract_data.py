@@ -1,10 +1,8 @@
 import boto3
 import datetime
 import json
-#from matplotlib.collections import LineCollection
 import numpy
 import os
-#import matplotlib.pyplot as pyplot
 import re
 import subprocess
 from soundfile import SoundFile, read
@@ -226,52 +224,6 @@ class ExtractData():
         wav_link = self.upload_file_to_bucket(wav_name)
         mp3_link = self.upload_file_to_bucket(mp3_name)
         return wav_link, mp3_link
-    
-#     def create_sample_graph(self, data, samplerate):
-#         """Creates a colored line graph of the passed data
-        
-#         Takes samples of the data every 0.01 seconds and creates a line
-#         graph using color to represent the magnitude, the graph is saved as 
-#         a png
-        
-#         Parameters
-#         ----------
-#         data: numpy array
-#             The data for the audio file
-#         samplerate: int
-#             The samplerate for the audio file
-#         """
-#         name = datetime.datetime.strftime(self.rec_datetime, '%H-%M-%S_%a_%d') + '.png'
-#         step = int(samplerate/100) #step = 0.01 seconds
-#         sampledData = data[::step]
-
-#         # Points is N x 1 x 2 array formed by all the data points and its enumeration
-#         points = numpy.array(list(enumerate(sampledData))).reshape(-1, 1, 2)
-#         # Segments is N x 2 x 2 (numlines x point[n], point[n + 1])
-#         # array of line segments for the LineCollection
-#         segments = numpy.concatenate([points[:-1], points[1:]], axis=1)
-
-#         sampleMin = -1
-#         sampleMax = 1
-
-#         #figsize change the size of the plot
-#         fig, axs = pyplot.subplots(figsize=(15.0, 0.5), dpi=100)
-
-#         norm = pyplot.Normalize(0, sampleMax )
-#         lc = LineCollection(segments, cmap='jet', norm=norm)
-
-#         #set the coloring pattern 
-#         lc.set_array(numpy.abs(sampledData))
-
-#         line = axs.add_collection(lc)
-
-#         axs.set_xlim(0, len(points))
-#         axs.set_ylim(sampleMin, sampleMax)
-#         pyplot.axis('off')
-#         pyplot.savefig(name, bbox_inches='tight') #tight, removes white spaces from the margins
-#         pyplot.close()
-#         jpg_link = self.upload_file_to_bucket(name)
-#         return jpg_link
     
     def upload_file_to_bucket(self, file):
         """Uploads the passed file to a s3 bucket
