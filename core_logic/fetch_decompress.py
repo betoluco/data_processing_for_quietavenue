@@ -1,14 +1,14 @@
 import boto3
 import os
 import zipfile
+import subprocess
 
 class FetchAndDecompress():
-    def __init__(self, bucket_folder, local_storage_path):
+    def __init__(self, bucket_folder):
         """Fetchs the audio files from the s3 bucket and decompress them
         """
         self.BUCKET = 'audiofilesource'
         self.prefix = bucket_folder + '/'
-        self.local_storage_path = local_storage_path
         self.download_files_from_bucket()
         
     def download_files_from_bucket(self):
@@ -37,6 +37,28 @@ class FetchAndDecompress():
         for file in os.listdir(os.getcwd()):
             if file.endswith('.zip'):
                 zip_ref = zipfile.ZipFile(file)
-                zip_ref.extractall(path=self.local_storage_path)
+                zip_ref.extractall()
                 zip_ref.close()
                 os.remove(file)
+        self.sort_wave_files()
+    
+    def sort_wave_files(self):
+        """Appends the wav files to a list and sorts them
+        
+        Loops through the local folder containing the wav files and appends it to
+        a list. Once it is done orders the list
+        """
+        raw_wav_files = []
+        for file in os.listdir():
+            if file.endswith('.wav'):
+                raw_wav_files.append(file)
+        raw_wav_files.sort()
+        self.convert_adpcm_to_pcm(raw_wav_files)
+        
+    def convert_adpcm_to_pcm(self, raw_wav_files):
+        for index, file in enumerate(raw_wav_files):
+            new_file = str(index) + '_pcm.wav'
+            subprocess.run('ffmpeg -i ' + file + ' -acodec pcm_s16le ' + new_file, shell=True)
+            os.remove(file)
+        
+    

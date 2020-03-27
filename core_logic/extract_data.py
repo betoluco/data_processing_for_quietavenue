@@ -2,58 +2,54 @@ import boto3
 import datetime
 import json
 import numpy
+import scipy.io.wavfile as wavfile
 import os
 import re
 import subprocess
-from soundfile import SoundFile, read
-
 
 
 class ExtractData():
     
-    def __init__(self, sample_size_sec, destination_bucket_folder, rec_datetime, dynamodb_item_key, source_files_path, minutes_to_trim=0):
+    def __init__(self, destination_bucket_folder, rec_datetime, dynamodb_item_key):
         """ Process audio data to obtain information
         
         Downloads ziped audio files from an S3 bucket and unzips them. Orders them 
         in cronologicaly order (a few seconds form the first file are trimend to get
         rid of undesire noise and to make it start at the minute exactly).
-        Splits the audio data in to equal size (SAMPLE_SIZE_IN_SECONDS) chuncks. 
-        Extract max valueo data from the chunck array (one at the time) and keeps
-        a record of the time
+        Splits the audio data in to equal size chuncks (SAMPLE_SIZE_IN_SECONDS). 
+        Extract max value data from the chunck array (one at the time) and stores it
+        in a list.
         """
         
-        if 60 % sample_size_sec:
-            raise ValueError('The sample_size_sec argument must devide one minute (60sec) with a remainder of zero')
-        else:
-            self.SAMPLE_SIZE_IN_SECONDS = sample_size_sec
-        
-        pattern = re.compile("[A-Za-z0-9-_,]+")
+        pattern = re.compile("[A-Za-z0-9-_]+")
         if pattern.fullmatch(destination_bucket_folder) is not None:
             self.prefix = destination_bucket_folder 
         else:
-            raise ValueError('The address must only contain "A-Z a-z 0-9 - _ ," character and no blank spaces')
+            raise ValueError('The address must only contain "A-Z a-z 0-9 - _" character and no blank spaces')
         
         self.rec_datetime = rec_datetime
         self.dynamodb_item_key = dynamodb_item_key
-        self.minutes_to_trim = minutes_to_trim
-        self.source_files_path = source_files_path
         self.BUCKET = 'webfilesource'
         self.wav_files = []
         self.point_list = []
         self.sort_wave_files()
+        self.X_AXIS_LENGTH_IN_MINUTES = 10 # When dividing by an hour the remanider has to be cero
+        self.X_AXIS_LENGTH_IN_SECONDS = self.X_AXIS_LENGTH_IN_MINUTES * datetime.timedelta(minutes=1).seconds
+        self.SAMPLE_SIZE_IN_SECONDS = .5
         
-    
     def sort_wave_files(self):
-        """Appends to a list the wav files and sorts them
+        """Appends the wav files to a list and sorts them
         
-        Loops throug a folder containing the wav files and appends it the to
-        a list. Also orders the list
+        Loops through the local folder containing the wav files and appends it to
+        a list. Once it is done orders the list
         """
-        for file in os.listdir(self.source_files_path):
-            self.wav_files.append(file)
+        
+        for file in os.listdir():
+            if file.endswith('.wav'):
+                self.wav_files.append(file)
         self.wav_files.sort()
         
-    def process_data(self, minutes_to_trim=0):
+    def process_data(self):
         """Calls the method in the correct order to process the data
         
         Gets the sound data from the first file and pass to a function to obtain
@@ -68,7 +64,7 @@ class ExtractData():
         while sample_list:
             for array in sample_list[:-1]:
                 self.append_data_to_json(array, samplerate)
-                self.update_rec_datetime(self.SAMPLE_SIZE_IN_SECONDS)
+                self.update_rec_datetime(self.X_AXIS_LENGTH_IN_SECONDS)
             last_array = sample_list.pop()
             sample_list = self.append_data(last_array, sound_data_generator)
         
@@ -86,7 +82,7 @@ class ExtractData():
         
         for file in self.wav_files:
             print(file)
-            yield read(self.source_files_path + '/' + file)
+            yield wavfile.read(file)
 
     def process_first_file(self, sound_data_generator):
         """Creates the first sample list
@@ -109,12 +105,13 @@ class ExtractData():
         -------
         : Calls the get_data_samples function
         """
-        data, samplerate = sound_data_generator.__next__()
-        data = self.trim_data(data, samplerate)
-        data_samples = self.get_data_samples(data, samplerate)
+        samplerate, data = sound_data_generator.__next__()
+        data = self.trim_first_seconds(data, samplerate)
+        data = self.trim_first_minutes(data, samplerate)
+        data_samples = self.get_data_samples(data, samplerate, self.X_AXIS_LENGTH_IN_SECONDS)
         return data_samples, samplerate
     
-    def trim_data(self, data, samplerate):
+    def trim_first_seconds(self, data, samplerate):
         """Trims a given time from the data array
         
         Trims from the data array the firts seconds recorded (seconds form the 
@@ -136,15 +133,20 @@ class ExtractData():
         numpy.array
             The trimed array
         """
-        SECONDS_IN_A_MINUTE = 60
-        seconds_to_trim = ((self.minutes_to_trim * SECONDS_IN_A_MINUTE) 
-                          + (SECONDS_IN_A_MINUTE - self.rec_datetime.second))
+        seconds_to_trim = datetime.timedelta(minutes=1).seconds - self.rec_datetime.second
         self.update_rec_datetime(seconds_to_trim)
         data_points_to_trim = seconds_to_trim * samplerate
         trimed_data = numpy.delete(data, range(0, data_points_to_trim))
         return trimed_data
+    
+    def trim_first_minutes(self, data, samplerate):
+        minutes_to_trim = self.rec_datetime.minute % self.X_AXIS_LENGTH_IN_MINUTES
+        self.update_rec_datetime(minutes_to_trim * datetime.timedelta(minutes=1).seconds)
+        data_points_to_trim = minutes_to_trim * samplerate * datetime.timedelta(minutes=1).seconds
+        trimed_data = numpy.delete(data, range(0, data_points_to_trim))
+        return trimed_data
           
-    def get_data_samples(self, data, samplerate):
+    def get_data_samples(self, data, samplerate, sample_size_in_seconds):
         """ Splits the data array to get the samples
         
         Split a passed data array into self.SAMPLE_SIZE_IN_SECONDS size arrays
@@ -164,7 +166,7 @@ class ExtractData():
         """
         
         stop = len(data)
-        sample_size = samplerate * self.SAMPLE_SIZE_IN_SECONDS
+        sample_size = int(sample_size_in_seconds *samplerate)
         samples = numpy.array_split(data, range(sample_size, stop, sample_size))
         return samples
     
@@ -184,19 +186,15 @@ class ExtractData():
             Data to extract the amax
         """
         
-        wav_link, mp3_link = self.create_sample_audio_files(data, samplerate)
-        #jpg_link = self.create_sample_graph(data, samplerate)
+        mp3_link = self.create_mp3_audio_files(data, samplerate)
+        
         self.point_list.append({
-            'hour': self.rec_datetime.hour,
-            'minute': self.rec_datetime.minute,
-            'second': self.rec_datetime.second,
-            'strongest_sound': numpy.amax(data),
-            'wav_link': wav_link,
+            'time': datetime.datetime.strftime(self.rec_datetime, '%H:%M'),
+            'strongest_sound': self.create_subsamples_list(data, samplerate),
             'mp3_link': mp3_link
-            #'jpg_link': jpg_link
         })
         
-    def create_sample_audio_files(self, data, samplerate):
+    def create_mp3_audio_files(self, data, samplerate):
         """Creates a .wav audio file
         
         Creates a wave (.wav) audio file using soundfile.write.
@@ -215,16 +213,21 @@ class ExtractData():
         samplerate: int
             The samplerate for the audio file
         """
-        wav_name = datetime.datetime.strftime(self.rec_datetime, '%H-%M-%S_%a_%d') + '.wav'
-        with SoundFile(wav_name, 'w', samplerate, 1) as f:
-            f.write(data)
-            
+        
+        wavfile.write('mp3_source.wav',samplerate, data)
         mp3_name = datetime.datetime.strftime(self.rec_datetime, '%H-%M-%S_%a_%d') + '.mp3'
-        subprocess.run('ffmpeg -i ' + wav_name + ' -acodec libmp3lame ' + mp3_name, shell=True)
-        wav_link = self.upload_file_to_bucket(wav_name)
+        subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
         mp3_link = self.upload_file_to_bucket(mp3_name)
-        return wav_link, mp3_link
+        os.remove('mp3_source.wav')
+        return mp3_link
     
+    def create_subsamples_list(self, data, samplerate):
+        max_points = []
+        samples = self.get_data_samples(data, samplerate, self.SAMPLE_SIZE_IN_SECONDS)
+        for sample in samples:
+            max_points.append(numpy.amax(sample).item())
+        return max_points
+        
     def upload_file_to_bucket(self, file):
         """Uploads the passed file to a s3 bucket
         
@@ -236,7 +239,7 @@ class ExtractData():
             The path to the file
         """
         s3_client = boto3.client('s3')
-        key = self.prefix + '/' + datetime.datetime.strftime(self.rec_datetime, '%a_%b_%d_%Y') + '/' + file
+        key = os.path.join(self.prefix, datetime.datetime.strftime(self.rec_datetime, '%a_%b_%d_%Y'), file)
         s3_client.upload_file(file, self.BUCKET, key)
         os.remove(file)
         return key
@@ -324,7 +327,11 @@ class ExtractData():
         -------
         : Calls the get_data_samples function
         """
-        data, samplerate = sound_data_generator.__next__()
+        try:
+            samplerate, data = sound_data_generator.__next__()
+        except StopIteration:
+            for file in self.wav_files:
+                os.remove(file)
         data = numpy.append(last_array, data)
-        data_samples = self.get_data_samples(data, samplerate)
+        data_samples = self.get_data_samples(data, samplerate, self.X_AXIS_LENGTH_IN_SECONDS)
         return data_samples
