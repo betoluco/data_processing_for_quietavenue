@@ -3,7 +3,7 @@ import os
 import zipfile
 import subprocess
 
-class FetchAndDecompress():
+class FetchAndPreprocess():
     def __init__(self, bucket_folder):
         """Download audio files from s3 and preprocess them
         
