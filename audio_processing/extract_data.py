@@ -11,7 +11,7 @@ class ExtractData():
         """Extract information from the audio files to make a sound graphic
         
         The information is stored in json arrays, one for every day recorded. Each
-        element in the array represents one minute of the recording and is 
+        element in the array represents SAMPLE_SIZE_IN_SECONDS (one minute) of the recording and is 
         an object that contains the time with the ISO 8601 format, a link to the audio 
         file (mp3),and a number representing the maximum intensity of the noise in 
         that minute.
@@ -46,8 +46,15 @@ class ExtractData():
         sample_list = self.get_data_samples(data, samplerate)
         while sample_list:
             for array in sample_list[:-1]:
-                self.append_data_to_list(array, samplerate)
-                self.update_rec_datetime()
+                mp3_link = self.create_mp3_audio_files(array, samplerate)
+                
+                self.data_point_list.append({
+                    'date': self.rec_datetime.isoformat(),
+                    'max': int(numpy.amax(array)),
+                    'mp3_link': mp3_link
+                })
+                
+                self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
             last_array = sample_list.pop()
             data = self.append_data_to_sound_array(last_array)
             sample_list = self.get_data_samples(data, samplerate)
@@ -57,49 +64,46 @@ class ExtractData():
         sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * samplerate)
         samples = numpy.array_split(data, range(sample_size, stop, sample_size))
         return samples
-    
-    def append_data_to_list(self, data, samplerate):
-        mp3_link = self.create_mp3_audio_files(data, samplerate)
-        
-        self.data_point_list.append({
-            'date': self.rec_datetime.date().isoformat(),
-            'max': int(numpy.amax(data)),
-            'mp3_link': mp3_link
-        })
         
     def create_mp3_audio_files(self, data, samplerate):
         wavfile.write('mp3_source.wav', samplerate, data)
-        mp3_name = datetime.datetime.strftime(self.rec_datetime, '%H-%M-%S_%a_%d') + '.mp3'
-        # %H: Hour (24-hour clock) as a zero-padded decimal number.
-        # %M: Minute as a zero-padded decimal number.
-        # %a: Weekday as locale’s abbreviated name.
-        # %d: Day of the month as a zero-padded decimal number.
+        mp3_name = datetime.datetime.strftime(self.rec_datetime, '%Y-%m-%d_%H-%M-%S') + '.mp3'
         subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
         os.remove('mp3_source.wav')
-        mp3_link = self.upload_file_to_bucket(mp3_name)
+        mp3_link = self.upload_file_to_bucket(mp3_name, 'audio_files')
         os.remove(mp3_name)
         return mp3_link
         
-    def upload_file_to_bucket(self, file):
-        folder = datetime.datetime.strftime(self.rec_datetime, '%a_%b_%d_%Y')
-        # %b Month as locale’s abbreviated name.
-        # %d Day of the month as a zero-padded decimal number.
-        # %Y Year with century as a decimal number.
+    def upload_file_to_bucket(self, file, folder=''):
         s3_client = boto3.client('s3')
-        key = os.path.join('places',self.prefix, folder, file)
+        key = os.path.join('properties',self.prefix, folder, file)
         s3_client.upload_file(file, 'quietavenue.com', key)
-        link = os.path.join('quietavenue.com', key)
+        link = os.path.join('https://s3-us-west-1.amazonaws.com/quietavenue.com', key)
         return link
 
-    def update_rec_datetime(self):
-        MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
-        if (self.rec_datetime + datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)).time() == MIDNIGHT:
-            self.upload_data_to_dynamodb()
-        self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
-    
-    def upload_data_to_dynamodb(self):
-        date = datetime.datetime.strftime(self.rec_datetime, '%a_%b_%d_%Y')
-        json_data = json.dumps(self.data_point_list)
+    def append_data_to_sound_array(self, last_array):
+        try:
+            samplerate, data = self.sound_data_generator.__next__()
+        except StopIteration:
+            file_name = self.create_JSON()
+            link_to_file_name = self.upload_file_to_bucket(file_name)
+            self.upload_link_to_data_to_dynamodb(link_to_file_name)
+            for file in self.wav_files:
+                os.remove(file)
+            os.remove(file_name)
+            os.remove('mp3_source.wav')
+            exit()
+        
+        data = numpy.append(last_array, data)
+        return data
+        
+    def create_JSON(self):
+        file = open('graph_data.json', 'w')
+        json.dump(self.data_point_list, file)
+        file.close()
+        return file.name
+        
+    def upload_link_to_data_to_dynamodb(self, link):
         dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
         table = dynamodb.Table('properties')
         
@@ -107,23 +111,12 @@ class ExtractData():
             Key={
                 'id': self.dynamodb_item_key,
             },
-            UpdateExpression='set ' + date + '=:d',
+            UpdateExpression='set  audio_data=:d',
             ExpressionAttributeValues={
-                ':d': json_data
+                ':d': link
             },
             ReturnValues="UPDATED_NEW"
         )
         
         if response['ResponseMetadata']['HTTPStatusCode'] == 200 and 'Attributes' in response:
             print (response['Attributes'])
-
-    def append_data_to_sound_array(self, last_array):
-        try:
-            samplerate, data = self.sound_data_generator.__next__()
-        except StopIteration:
-            self.upload_data_to_dynamodb()
-            exit()
-            #for file in self.wav_files:
-            #    os.remove(file)
-        data = numpy.append(last_array, data)
-        return data
