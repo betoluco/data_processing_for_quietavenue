@@ -26,10 +26,12 @@ class ExtractData():
         self.dynamodb_item_key = dynamodb_item_key
         self.wav_files = []
         self.data_point_list = []
+        self.days_list = []
+        self.data_max_loudness = 0
         self.sort_wave_files()
         self.sound_data_generator = self.get_sound_data()
         self.process_data()
-    
+        
     def sort_wave_files(self):
         for file in os.listdir():
             if file.endswith('.wav'):
@@ -47,10 +49,13 @@ class ExtractData():
         while sample_list:
             for array in sample_list[:-1]:
                 mp3_link = self.create_mp3_audio_files(array, samplerate)
+                max_loudness = numpy.amax(array)
+                if (max_loudness > self.data_max_loudness):
+                    self.data_max_loudness = max_loudness
                 
                 self.data_point_list.append({
                     'date': self.rec_datetime.isoformat(),
-                    'max': int(numpy.amax(array)),
+                    'max_loudness': max_loudness,
                     'mp3_link': mp3_link
                 })
                 
@@ -73,7 +78,7 @@ class ExtractData():
         mp3_link = self.upload_file_to_bucket(mp3_name, 'audio_files')
         os.remove(mp3_name)
         return mp3_link
-        
+    
     def upload_file_to_bucket(self, file, folder=''):
         s3_client = boto3.client('s3')
         key = os.path.join('properties',self.prefix, folder, file)
