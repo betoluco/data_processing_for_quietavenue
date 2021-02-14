@@ -18,31 +18,31 @@ To start, set the variable in entry.py and run it.
 
 4. In AWS EC2 console attach the role to the Cloud9 instance
    1. Selece the Cloud9 instance
-   2. Choose Actions -> Security -> Modify IAM Role
+   2. Go to Actions -> Security -> Modify IAM Role
    3. In the drop down list select the role previously created
 ### More info on [aws docs](https://docs.aws.amazon.com/cloud9/latest/user-guide/credentials.html#credentials-temporary-attach-console) and [youtube viedo](https://www.youtube.com/watch?v=C4AyfV3Z3xs)
 
 5. Clone the proyect to aws cloud9
-```
+```bash
 git clone https://github.com/betoluco/data_processing_for_quietavenue.git
 ```
 
 6. In the cloud9 bash
-```
+```bash
 sudo apt-get update
-sudo pip3 install boto3 numpy scipy
-sudo pip3 install --upgrade awscli
 sudo apt install ffmpeg
+cd data_processing_for_quietavenue
+sudo pip3 install -r requirements.txt
 ```
 
 7. Click on AWS Cloud9 in menu bar -> Preferences -> AWS Settings -> turn off AWS manage temporary credentials
 
 8. In the cloud9 bash
-```
+```bash
 aws configure list
 ```
 something like the following text must appear
-```
+```bash
 
       Name                    Value             Type    Location
       ----                    -----             ----    --------
@@ -52,3 +52,9 @@ secret_key     ****************ME6A         iam-role
     region                <not set>             None    None
 ```
 ### More info on [aws docs](https://aws.amazon.com/premiumsupport/knowledge-center/access-key-does-not-exist)
+
+9. Close cloud9, go to EC2 select the machine and in instance state dropdown menu select Reboot
+
+# To ejecute:
+
+Fill the data in entry.py file and ejecute it

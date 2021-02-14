@@ -8,16 +8,22 @@ import subprocess
 
 class ExtractData():
     def __init__(self, destination_bucket_folder, rec_datetime, dynamodb_item_key):
-        """Extract information from the audio files to make a sound graphic
+        """Extract information from audio files for its use in a sound chart
         
-        The information is stored in json arrays, one for every day recorded. Each
-        element in the array represents SAMPLE_SIZE_IN_SECONDS (one minute) of the recording and is 
-        an object that contains the time with the ISO 8601 format, a link to the audio 
-        file (mp3),and a number representing the maximum intensity of the noise in 
-        that minute.
+        Process audio files, segmenting them in samples of SAMPLE_SIZE_IN_SECONDS 
+        (one minute) length. The maximum loudness is extracted and an MP3 file is
+        generated and stored in the S3 quietavenue.com bucket from each of the segments.
+        The maximum loudness, a link to the mp3 file, and the date and time in ISO 8601
+        format of the sample, are appended in a list (data_point_list). Once all the audio
+        files have been processed, the maximum loudness is normalized to a 0-1 range by
+        dividing all the loudnees values in the list by the maximum loudnees value of all 
+        the processed segments. 
         
-        The audio files are uploaded to quietavenue.com S3 bucket and the extracted
-        data to DynamoDB places table
+        The list is converted to a json file and stored in the quietavenue.com bucket
+        and a link to the json file is stored in DynamoDB.
+        
+        While processing the audio files a second list is created were the days of the recordings
+        are appended in ISO 8601 format to it.
         """
         
         self.SAMPLE_SIZE_IN_SECONDS = 60
@@ -60,6 +66,7 @@ class ExtractData():
                 })
                 
                 self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+                self.append_to_days_list()
             last_array = sample_list.pop()
             data = self.append_data_to_sound_array(last_array)
             sample_list = self.get_data_samples(data, samplerate)
@@ -85,6 +92,11 @@ class ExtractData():
         s3_client.upload_file(file, 'quietavenue.com', key)
         link = os.path.join('https://s3-us-west-1.amazonaws.com/quietavenue.com', key)
         return link
+        
+    def append_to_days_list(self):
+        MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
+        if (self.rec_datetime.time() == MIDNIGHT):
+            self.days_list.append(self.rec_datetime.isoformat())
 
     def append_data_to_sound_array(self, last_array):
         try:
@@ -96,29 +108,41 @@ class ExtractData():
             for file in self.wav_files:
                 os.remove(file)
             os.remove(file_name)
-            os.remove('mp3_source.wav')
             exit()
         
         data = numpy.append(last_array, data)
         return data
         
     def create_JSON(self):
+        self.normalize_max_loudness()
         file = open('graph_data.json', 'w')
-        json.dump(self.data_point_list, file)
+        json.dump(
+        {
+            'data': self.data_point_list,
+            'days': self.days_list
+        }
+        , file)
         file.close()
         return file.name
-        
+    
+    def normalize_max_loudness(self):
+        for data in self.data_point_list:
+            data['max_loudness'] = str(data['max_loudness']/self.data_max_loudness)
+       
     def upload_link_to_data_to_dynamodb(self, link):
         dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
-        table = dynamodb.Table('properties')
+        table = dynamodb.Table('quietavenue')
         
         response = table.update_item(
             Key={
-                'id': self.dynamodb_item_key,
+                'PK': self.dynamodb_item_key,
             },
-            UpdateExpression='set  audio_data=:d',
+            UpdateExpression= 'set #ppty.audio_data=:d',
             ExpressionAttributeValues={
                 ':d': link
+            },
+            ExpressionAttributeNames={
+                "#ppty": "property"
             },
             ReturnValues="UPDATED_NEW"
         )
