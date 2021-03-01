@@ -61,8 +61,8 @@ class ExtractData():
                 
                 self.data_point_list.append({
                     'date': self.rec_datetime.isoformat(),
-                    'max_loudness': max_loudness,
-                    'mp3_link': mp3_link
+                    'maxLoudness': max_loudness,
+                    'mp3Link': mp3_link
                 })
                 
                 self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
@@ -127,7 +127,7 @@ class ExtractData():
     
     def normalize_max_loudness(self):
         for data in self.data_point_list:
-            data['max_loudness'] = str(data['max_loudness']/self.data_max_loudness)
+            data['maxLoudness'] = str(data['maxLoudness']/self.data_max_loudness)
        
     def upload_link_to_data_to_dynamodb(self, link):
         dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
@@ -137,7 +137,7 @@ class ExtractData():
             Key={
                 'PK': self.dynamodb_item_key,
             },
-            UpdateExpression= 'set #ppty.audio_data=:d',
+            UpdateExpression= 'set #ppty.audioData=:d',
             ExpressionAttributeValues={
                 ':d': link
             },
