@@ -137,7 +137,7 @@ class ExtractData():
             Key={
                 'PK': self.dynamodb_item_key,
             },
-            UpdateExpression= 'set #ppty.audioData=:d',
+            UpdateExpression= 'set #ppty.graphData=:d',
             ExpressionAttributeValues={
                 ':d': link
             },
