@@ -115,11 +115,11 @@ class ExtractData():
         
     def create_JSON(self):
         self.normalize_max_loudness()
-        file = open('graph_data.json', 'w')
+        file = open('graphData.json', 'w')
         json.dump(
         {
-            'data': self.data_point_list,
-            'days': self.days_list
+            'dataPoints': self.data_point_list,
+            'recordedDays': self.days_list
         }
         , file)
         file.close()
@@ -137,7 +137,7 @@ class ExtractData():
             Key={
                 'PK': self.dynamodb_item_key,
             },
-            UpdateExpression= 'set #ppty.graphData=:d',
+            UpdateExpression= 'set #ppty.graphDataLink=:d',
             ExpressionAttributeValues={
                 ':d': link
             },
