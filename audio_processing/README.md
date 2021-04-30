@@ -4,8 +4,8 @@ This project extracts the data out of audio files. The data is used in to create
 # Setup
 
 1. Create a cloud9 machine with ubuntu and more tha 6 GiB in ram
-2. Increase the size of the volume to 70GiB
-   1. Go to EC2 and selece the Cloud9 instance
+2. In AWS EC2 console increase the size of the volume to 70GiB
+   1. Selece the Cloud9 instance
    2. Go to Storage tab and click volume ID
    3. Click on Actions -> Modify Volume
    4. Set size to 70 and click Modify
