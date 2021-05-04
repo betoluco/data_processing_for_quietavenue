@@ -25,15 +25,21 @@ class ExtractData():
         While processing the audio files a second list is created were the days of the recordings
         are appended in ISO 8601 format to it.
         """
-        
-        self.SAMPLE_SIZE_IN_SECONDS = 60
+        #Global variables
+        self.SAMPLE_SIZE_IN_SECONDS = 5
+        self.NOISE_LOUDNESS_PERCENTAGE_LIMIT = 0.1
+        self.NUMBER_OF_SILENCE_SAMPLES = 12 # 12 samples of 5 seconds = one minute of silence
         self.prefix = destination_bucket_folder
         self.rec_datetime = rec_datetime
         self.dynamodb_item_key = dynamodb_item_key
+        self.noise_loudness_limit 
+        self.data_max_loudness = 0
         self.wav_files = []
         self.data_point_list = []
-        self.days_list = []
-        self.data_max_loudness = 0
+        self.sound_array = []
+        self.sound_duration_array = []
+        self.samplerate
+        #Execute the program
         self.sort_wave_files()
         self.sound_data_generator = self.get_sound_data()
         self.process_data()
@@ -41,9 +47,17 @@ class ExtractData():
     def sort_wave_files(self):
         for file in os.listdir():
             if file.endswith('.wav'):
+                self.get_data_max_loudness(file)
                 self.wav_files.append(file)
         self.wav_files.sort()
-        
+        self.noise_loudness_limit = self.data_max_loudness * self.NOISE_LOUDNESS_PERCENTAGE_LIMIT
+
+    def get_data_max_loudness(self, file):
+        self.samplerate, data = wavfile.read(file)
+        max_loudness = numpy.amax(data)
+        if (max_loudness > self.data_max_loudness):
+            self.data_max_loudness = max_loudness
+    
     def get_sound_data(self):
         for file in self.wav_files:
             print(file)
@@ -52,33 +66,53 @@ class ExtractData():
     def process_data(self):
         samplerate, data = self.sound_data_generator.__next__()
         sample_list = self.get_data_samples(data, samplerate)
+        silence_counter = 0
+        noise = False
+        
+        
         while sample_list:
             for array in sample_list[:-1]:
-                mp3_link = self.create_mp3_audio_files(array, samplerate)
-                max_loudness = numpy.amax(array)
-                if (max_loudness > self.data_max_loudness):
-                    self.data_max_loudness = max_loudness
-                
-                self.data_point_list.append({
-                    'date': self.rec_datetime.isoformat(),
-                    'maxLoudness': max_loudness,
-                    'mp3Link': mp3_link
-                })
-                
+                silence_counter =+ 1
+                self.extract_sound(array, silence_counter, noise)
                 self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
-                self.append_to_days_list()
             last_array = sample_list.pop()
             data = self.append_data_to_sound_array(last_array)
-            sample_list = self.get_data_samples(data, samplerate)
+            sample_list = self.get_data_samples(data)
             
-    def get_data_samples(self, data, samplerate):
+    
+    def extract_sound(self, array, silence_counter, noise):
+        if numpy.amax(array) > self.noise_loudness_limit:
+            noise = True
+            silence_counter = 0
+        
+        if noise:
+            self.sound_array.extend(array)
+            self.sound_duration_array.append(self.rec_datetime)
+        
+        if silence_counter > self.NUMBER_OF_SILENCE_SAMPLES:
+            noise = False
+            sound_array_trim = self.samplerate * self.SAMPLE_SIZE_IN_SECONDS * self.NUMBER_OF_SILENCE_SAMPLES
+            self.sound_array = self.sound_array[: -sound_array_trim]
+            self.sound_duration_array = self.sound_duration_array[: -self.NUMBER_OF_SILENCE_SAMPLES]
+            self.append_data_to_data_point_list()
+    
+    def append_data_to_data_point_list(self):
+        mp3_link = self.create_mp3_audio_files()
+        self.data_point_list.append({
+            'StartTime': self.sound_duration_array[0].isoformat(),
+            'SoundDuration': 
+            'maxLoudness': numpy.amax(self.sound_array),
+            'mp3Link': mp3_link
+        })
+            
+    def get_data_samples(self, data):
         stop = len(data)
-        sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * samplerate)
+        sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * self.samplerate)
         samples = numpy.array_split(data, range(sample_size, stop, sample_size))
         return samples
         
-    def create_mp3_audio_files(self, data, samplerate):
-        wavfile.write('mp3_source.wav', samplerate, data)
+    def create_mp3_audio_files(self):
+        wavfile.write('mp3_source.wav', self.samplerate, self.sound_array)
         mp3_name = datetime.datetime.strftime(self.rec_datetime, '%Y-%m-%d_%H-%M-%S') + '.mp3'
         subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
         os.remove('mp3_source.wav')
@@ -92,12 +126,7 @@ class ExtractData():
         s3_client.upload_file(file, 'quietavenue.com', key)
         link = os.path.join('https://s3-us-west-1.amazonaws.com/quietavenue.com', key)
         return link
-        
-    def append_to_days_list(self):
-        MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
-        if (self.rec_datetime.time() == MIDNIGHT):
-            self.days_list.append(self.rec_datetime.isoformat())
-
+    
     def append_data_to_sound_array(self, last_array):
         try:
             samplerate, data = self.sound_data_generator.__next__()
@@ -116,12 +145,7 @@ class ExtractData():
     def create_JSON(self):
         self.normalize_max_loudness()
         file = open('graphData.json', 'w')
-        json.dump(
-        {
-            'dataPoints': self.data_point_list,
-            'recordedDays': self.days_list
-        }
-        , file)
+        json.dump(self.data_point_list, file)
         file.close()
         return file.name
     

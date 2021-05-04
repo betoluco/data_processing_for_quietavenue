@@ -29,7 +29,7 @@ git clone https://github.com/betoluco/data_processing_for_quietavenue.git
 ```bash
 sudo apt-get update
 sudo apt install ffmpeg
-cd data_processing_for_quietavenue
+cd data_processing_for_quietavenue/audio_processing
 sudo pip3 install -r requirements.txt
 ```
 
