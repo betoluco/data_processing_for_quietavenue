@@ -26,23 +26,22 @@ class ExtractData():
         are appended in ISO 8601 format to it.
         """
         #Global variables
-        self.SAMPLE_SIZE_IN_SECONDS = 5
-        self.NOISE_LOUDNESS_PERCENTAGE_LIMIT = 0.1
-        self.NUMBER_OF_SILENCE_SAMPLES = 12 # 12 samples of 5 seconds = one minute of silence
+        self.SAMPLE_SIZE_IN_SECONDS = 5 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
+        self.SOUND_LOUDNESS_PERCENTAGE_LIMIT = 0.1
+        self.MAX_SILENCE_DURATION_IN_SECONDS = 60 
         self.prefix = destination_bucket_folder
         self.rec_datetime = rec_datetime
         self.dynamodb_item_key = dynamodb_item_key
-        self.noise_loudness_limit 
+        self.sound_loudness_limit = 0
         self.data_max_loudness = 0
         self.wav_files = []
         self.data_point_list = []
-        self.sound_array = []
-        self.sound_duration_array = []
-        self.samplerate
+        self.sound_array = numpy.array([])
+        self.sound_time_array = []
         #Execute the program
         self.sort_wave_files()
         self.sound_data_generator = self.get_sound_data()
-        self.process_data()
+        self.run_through_data()
         
     def sort_wave_files(self):
         for file in os.listdir():
@@ -50,7 +49,7 @@ class ExtractData():
                 self.get_data_max_loudness(file)
                 self.wav_files.append(file)
         self.wav_files.sort()
-        self.noise_loudness_limit = self.data_max_loudness * self.NOISE_LOUDNESS_PERCENTAGE_LIMIT
+        self.sound_loudness_limit = self.data_max_loudness * self.SOUND_LOUDNESS_PERCENTAGE_LIMIT
 
     def get_data_max_loudness(self, file):
         self.samplerate, data = wavfile.read(file)
@@ -63,47 +62,47 @@ class ExtractData():
             print(file)
             yield wavfile.read(file)
     
-    def process_data(self):
+    def run_through_data(self):
         samplerate, data = self.sound_data_generator.__next__()
-        sample_list = self.get_data_samples(data, samplerate)
-        silence_counter = 0
-        noise = False
-        
+        sample_list = self.get_data_samples(data)
         
         while sample_list:
             for array in sample_list[:-1]:
-                silence_counter =+ 1
-                self.extract_sound(array, silence_counter, noise)
+                self.extract_sound(array)
                 self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+                
             last_array = sample_list.pop()
             data = self.append_data_to_sound_array(last_array)
             sample_list = self.get_data_samples(data)
+
+    def extract_sound(self, array):
+        MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
+        if numpy.amax(array) > self.sound_loudness_limit:
+            self.sound_time_array.append(self.rec_datetime)
             
-    
-    def extract_sound(self, array, silence_counter, noise):
-        if numpy.amax(array) > self.noise_loudness_limit:
-            noise = True
-            silence_counter = 0
-        
-        if noise:
-            self.sound_array.extend(array)
-            self.sound_duration_array.append(self.rec_datetime)
-        
-        if silence_counter > self.NUMBER_OF_SILENCE_SAMPLES:
-            noise = False
-            sound_array_trim = self.samplerate * self.SAMPLE_SIZE_IN_SECONDS * self.NUMBER_OF_SILENCE_SAMPLES
-            self.sound_array = self.sound_array[: -sound_array_trim]
-            self.sound_duration_array = self.sound_duration_array[: -self.NUMBER_OF_SILENCE_SAMPLES]
+        if self.sound_time_array:
+            self.sound_array = numpy.append(self.sound_array, array)
+            silence_duration_in_seconds = (self.rec_datetime - self.sound_time_array[-1]).total_seconds()
+            if silence_duration_in_seconds > self.MAX_SILENCE_DURATION_IN_SECONDS:
+                self.sound_array = self.sound_array[:-self.MAX_SILENCE_DURATION_IN_SECONDS * self.samplerate]
+                self.append_data_to_data_point_list()
+                self.sound_time_array = []
+            
+        if (self.rec_datetime.time() == MIDNIGHT and self.sound_time_array):
             self.append_data_to_data_point_list()
+            self.sound_time_array = []
     
     def append_data_to_data_point_list(self):
+        print(self.sound_time_array[0].isoformat())
         mp3_link = self.create_mp3_audio_files()
         self.data_point_list.append({
-            'StartTime': self.sound_duration_array[0].isoformat(),
-            'SoundDuration': 
+            'startTime': self.sound_time_array[0].isoformat(),
+            'stopTime': self.sound_time_array[-1].isoformat(),
             'maxLoudness': numpy.amax(self.sound_array),
             'mp3Link': mp3_link
         })
+        self.sound_array = numpy.array([])
+        self.sound_duration_array = []
             
     def get_data_samples(self, data):
         stop = len(data)
@@ -113,7 +112,7 @@ class ExtractData():
         
     def create_mp3_audio_files(self):
         wavfile.write('mp3_source.wav', self.samplerate, self.sound_array)
-        mp3_name = datetime.datetime.strftime(self.rec_datetime, '%Y-%m-%d_%H-%M-%S') + '.mp3'
+        mp3_name = datetime.datetime.strftime(self.sound_time_array[0], '%Y-%m-%d_%H-%M-%S') + '.mp3'
         subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
         os.remove('mp3_source.wav')
         mp3_link = self.upload_file_to_bucket(mp3_name, 'audio_files')
