@@ -1,5 +1,6 @@
 # Description
-This project extracts the data out of audio files. The data is used in to create graphics
+Extracts data out of audio files, creating a JSON file used to draw
+grphics with d3.jw
 
 # Setup
 
@@ -18,7 +19,7 @@ This project extracts the data out of audio files. The data is used in to create
    1. Selece the Cloud9 instance
    2. Go to Actions -> Security -> Modify IAM Role
    3. In the drop down list select the role previously created
-### More info on [aws docs](https://docs.aws.amazon.com/cloud9/latest/user-guide/credentials.html#credentials-temporary-attach-console) and [youtube viedo](https://www.youtube.com/watch?v=C4AyfV3Z3xs)
+More info on [aws docs](https://docs.aws.amazon.com/cloud9/latest/user-guide/credentials.html#credentials-temporary-attach-console) and [youtube viedo](https://www.youtube.com/watch?v=C4AyfV3Z3xs)
 
 5. Clone the proyect to aws cloud9
 ```bash

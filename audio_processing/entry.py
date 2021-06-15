@@ -14,8 +14,4 @@ dynamodb_key =	'457-Oak-St-APT-2-San-Francisco-CA-94102'
 
 FetchAndPreprocess(audio_files_source)
 
-auxiliar = ExtractData(
-    audio_files_storage,
-    recording_start_datetime,
-    dynamodb_key
-)
+auxiliar = ExtractData(audio_files_storage, recording_start_datetime, dynamodb_key)

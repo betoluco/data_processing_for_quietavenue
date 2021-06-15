@@ -28,7 +28,8 @@ class ExtractData():
         #Global variables
         self.SAMPLE_SIZE_IN_SECONDS = 5 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
         self.SOUND_LOUDNESS_PERCENTAGE_LIMIT = 0.1
-        self.MAX_SILENCE_DURATION_IN_SECONDS = 60 
+        self.MAX_SILENCE_DURATION_IN_SECONDS = 60
+        self.MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
         self.prefix = destination_bucket_folder
         self.rec_datetime = rec_datetime
         self.dynamodb_item_key = dynamodb_item_key
@@ -76,19 +77,20 @@ class ExtractData():
             sample_list = self.get_data_samples(data)
 
     def extract_sound(self, array):
-        MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
+        
         if numpy.amax(array) > self.sound_loudness_limit:
             self.sound_time_array.append(self.rec_datetime)
+            self.sound_time_array.append(self.rec_datetime + datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS))
             
         if self.sound_time_array:
             self.sound_array = numpy.append(self.sound_array, array)
             silence_duration_in_seconds = (self.rec_datetime - self.sound_time_array[-1]).total_seconds()
-            if silence_duration_in_seconds > self.MAX_SILENCE_DURATION_IN_SECONDS:
+            if silence_duration_in_seconds >= self.MAX_SILENCE_DURATION_IN_SECONDS:
                 self.sound_array = self.sound_array[:-self.MAX_SILENCE_DURATION_IN_SECONDS * self.samplerate]
                 self.append_data_to_data_point_list()
                 self.sound_time_array = []
             
-        if (self.rec_datetime.time() == MIDNIGHT and self.sound_time_array):
+        if (self.rec_datetime.time() == self.MIDNIGHT and self.sound_time_array):
             self.append_data_to_data_point_list()
             self.sound_time_array = []
     
