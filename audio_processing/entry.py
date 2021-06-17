@@ -12,6 +12,6 @@ audio_files_storage = '742_Aries_Ln_Foster_City_California_94404/'
 #The key of the element in quietavenue DynamoDB table where the link to S3 bucket is going to be stored
 dynamodb_key =	'457-Oak-St-APT-2-San-Francisco-CA-94102'
 
-FetchAndPreprocess(audio_files_source)
+#FetchAndPreprocess(audio_files_source)
 
 auxiliar = ExtractData(audio_files_storage, recording_start_datetime, dynamodb_key)

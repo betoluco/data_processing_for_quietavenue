@@ -37,7 +37,7 @@ class ExtractData():
         self.data_max_loudness = 0
         self.wav_files = []
         self.data_point_list = []
-        self.sound_array = numpy.array([])
+        self.sound_array = numpy.array([], dtype=numpy.int16)
         self.sound_time_array = []
         #Execute the program
         self.sort_wave_files()
@@ -88,14 +88,11 @@ class ExtractData():
             if silence_duration_in_seconds >= self.MAX_SILENCE_DURATION_IN_SECONDS:
                 self.sound_array = self.sound_array[:-self.MAX_SILENCE_DURATION_IN_SECONDS * self.samplerate]
                 self.append_data_to_data_point_list()
-                self.sound_time_array = []
             
         if (self.rec_datetime.time() == self.MIDNIGHT and self.sound_time_array):
             self.append_data_to_data_point_list()
-            self.sound_time_array = []
     
     def append_data_to_data_point_list(self):
-        print(self.sound_time_array[0].isoformat())
         mp3_link = self.create_mp3_audio_files()
         self.data_point_list.append({
             'startTime': self.sound_time_array[0].isoformat(),
@@ -104,7 +101,7 @@ class ExtractData():
             'mp3Link': mp3_link
         })
         self.sound_array = numpy.array([])
-        self.sound_duration_array = []
+        self.sound_time_array = []
             
     def get_data_samples(self, data):
         stop = len(data)
