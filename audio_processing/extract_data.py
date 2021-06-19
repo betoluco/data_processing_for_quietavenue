@@ -100,7 +100,7 @@ class ExtractData():
             'maxLoudness': numpy.amax(self.sound_array),
             'mp3Link': mp3_link
         })
-        self.sound_array = numpy.array([])
+        self.sound_array = numpy.array([], dtype=numpy.int16)
         self.sound_time_array = []
             
     def get_data_samples(self, data):
@@ -114,27 +114,26 @@ class ExtractData():
         mp3_name = datetime.datetime.strftime(self.sound_time_array[0], '%Y-%m-%d_%H-%M-%S') + '.mp3'
         subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
         os.remove('mp3_source.wav')
-        mp3_link = self.upload_file_to_bucket(mp3_name, 'audio_files')
+        mp3_link = self.upload_file_to_bucket(mp3_name, "audioFiles")
         os.remove(mp3_name)
         return mp3_link
     
-    def upload_file_to_bucket(self, file, folder=''):
+    def upload_file_to_bucket(self, file, folder=""):
         s3_client = boto3.client('s3')
-        key = os.path.join('properties',self.prefix, folder, file)
+        key = os.path.join('assets', self.prefix, folder, file)
         s3_client.upload_file(file, 'quietavenue.com', key)
-        link = os.path.join('https://s3-us-west-1.amazonaws.com/quietavenue.com', key)
-        return link
+        return key
     
     def append_data_to_sound_array(self, last_array):
         try:
             samplerate, data = self.sound_data_generator.__next__()
         except StopIteration:
-            file_name = self.create_JSON()
-            link_to_file_name = self.upload_file_to_bucket(file_name)
-            self.upload_link_to_data_to_dynamodb(link_to_file_name)
+            json_file = self.create_JSON()
+            link_to_json_file = self.upload_file_to_bucket(json_file)
+            self.upload_link_to_data_to_dynamodb(link_to_json_file)
             for file in self.wav_files:
                 os.remove(file)
-            os.remove(file_name)
+            os.remove(json_file)
             exit()
         
         data = numpy.append(last_array, data)
