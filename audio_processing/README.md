@@ -4,7 +4,7 @@ grphics with d3.jw
 
 # Setup
 
-1. Create a cloud9 envorinment with ubuntu and more tha 6 GiB in ram
+1. Create a cloud9 environment with ubuntu and more tha 6 GiB in ram
 2. In AWS EC2 console increase the size of the volume to 70GiB
    1. Selece the Cloud9 instance
    2. Go to Storage tab and click volume ID
