@@ -10,6 +10,7 @@ class FetchAndPreprocess():
         Download audio files from audiofilesource S3 bucket, unzip
         the files and tranform them with the help of FFMPEG
         """
+        self.BUCKET = 'quietavenuerawfiles'
         self.prefix = bucket_folder
         self.download_files_from_bucket()
         self.unzip_files()
@@ -24,14 +25,14 @@ class FetchAndPreprocess():
         """
         client = boto3.client('s3')
         zip_files = client.list_objects_v2(
-            Bucket='audiofilesource', 
+            Bucket=self.BUCKET, 
             Prefix=self.prefix, 
             StartAfter=self.prefix)  # Eliminates from the list the zero length object named like the
                                 # folder (folder object) created by the S3 Management Console.
                                 # The folder object it is the first element in the list and its
                                 # named equal to the folder (prefix)
         for zip_file in zip_files['Contents']:
-            client.download_file('audiofilesource',
+            client.download_file(self.BUCKET,
                                  zip_file['Key'],
                                  os.path.basename(zip_file['Key'])) #basename eliminates the prefix
         

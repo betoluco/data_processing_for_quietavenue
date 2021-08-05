@@ -152,7 +152,7 @@ class ExtractData():
        
     def upload_link_to_data_to_dynamodb(self, link):
         dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
-        table = dynamodb.Table('quietavenue')
+        table = dynamodb.Table('quietavenue.com')
         
         response = table.update_item(
             Key={
@@ -163,7 +163,7 @@ class ExtractData():
                 ':d': link
             },
             ExpressionAttributeNames={
-                "#ppty": "property"
+                "#ppty": "estate"
             },
             ReturnValues="UPDATED_NEW"
         )
