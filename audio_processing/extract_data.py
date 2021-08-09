@@ -26,9 +26,9 @@ class ExtractData():
         are appended in ISO 8601 format to it.
         """
         #Global variables
-        self.SAMPLE_SIZE_IN_SECONDS = 5 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
+        self.SAMPLE_SIZE_IN_SECONDS = 4 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
         self.SOUND_LOUDNESS_PERCENTAGE_LIMIT = 0.1
-        self.MAX_SILENCE_DURATION_IN_SECONDS = 60
+        self.MIN_REPRESENTATION_UNIT = 60
         self.MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
         self.prefix = destination_bucket_folder
         self.rec_datetime = rec_datetime
@@ -80,13 +80,11 @@ class ExtractData():
         
         if numpy.amax(array) > self.sound_loudness_limit:
             self.sound_time_array.append(self.rec_datetime)
-            self.sound_time_array.append(self.rec_datetime + datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS))
+            self.sound_array = numpy.append(self.sound_array, array)
             
         if self.sound_time_array:
-            self.sound_array = numpy.append(self.sound_array, array)
-            silence_duration_in_seconds = (self.rec_datetime - self.sound_time_array[-1]).total_seconds()
-            if silence_duration_in_seconds >= self.MAX_SILENCE_DURATION_IN_SECONDS:
-                self.sound_array = self.sound_array[:-self.MAX_SILENCE_DURATION_IN_SECONDS * self.samplerate]
+            time_since_first_noise = (self.rec_datetime - self.sound_time_array[0]).total_seconds()
+            if time_since_first_noise >= self.MIN_REPRESENTATION_UNIT:
                 self.append_data_to_data_point_list()
             
         if (self.rec_datetime.time() == self.MIDNIGHT and self.sound_time_array):
@@ -96,7 +94,6 @@ class ExtractData():
         mp3_link = self.create_mp3_audio_files()
         self.data_point_list.append({
             'startTime': self.sound_time_array[0].isoformat(),
-            'stopTime': self.sound_time_array[-1].isoformat(),
             'maxLoudness': numpy.amax(self.sound_array),
             'mp3Link': mp3_link
         })
