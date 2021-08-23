@@ -39,6 +39,7 @@ class FetchAndPreprocess():
     def unzip_files(self):
         for file in os.listdir(os.getcwd()):
             if file.endswith('.zip'):
+                print(file)
                 zip_ref = zipfile.ZipFile(file)
                 zip_ref.extractall()
                 zip_ref.close()
@@ -54,7 +55,7 @@ class FetchAndPreprocess():
 
         """
         for file in os.listdir():
-            if file.endswith('.wav'):
+            if (file.endswith('.WAV')):
                 new_file = 'pcm_' + file
                 subprocess.run('ffmpeg -i ' + file + ' -acodec pcm_s16le ' + new_file, shell=True)
                 os.remove(file)

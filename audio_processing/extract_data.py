@@ -46,7 +46,7 @@ class ExtractData():
         
     def sort_wave_files(self):
         for file in os.listdir():
-            if file.endswith('.wav'):
+            if file.endswith('.WAV'):
                 self.get_data_max_loudness(file)
                 self.wav_files.append(file)
         self.wav_files.sort()
@@ -93,7 +93,7 @@ class ExtractData():
     def append_data_to_data_point_list(self):
         mp3_link = self.create_mp3_audio_files()
         self.data_point_list.append({
-            'startTime': self.sound_time_array[0].isoformat(),
+            'time': self.sound_time_array[0].isoformat(),
             'maxLoudness': numpy.amax(self.sound_array),
             'mp3Link': mp3_link
         })
