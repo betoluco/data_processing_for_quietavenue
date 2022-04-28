@@ -1,6 +1,6 @@
 # Description
 Extracts data out of audio files, creating a JSON file used to draw
-grphics with d3.jw
+grphics with d3.js
 
 # Setup
 
@@ -22,7 +22,7 @@ grphics with d3.jw
    3. In the drop down list select the role previously created
 More info on [aws docs](https://docs.aws.amazon.com/cloud9/latest/user-guide/credentials.html#credentials-temporary-attach-console) and [youtube viedo](https://www.youtube.com/watch?v=C4AyfV3Z3xs)
 
-5. Click on AWS Cloud9 in menu bar -> Preferences -> AWS Settings -> turn off AWS manage temporary credentials
+5. Click on AWS Cloud9 in menu bar -> Preferences -> AWS Settings -> turn off "AWS manage temporary credentials"
 
 6. In the cloud9 bash
 ```bash
