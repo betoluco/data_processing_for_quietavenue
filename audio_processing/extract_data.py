@@ -27,14 +27,13 @@ class ExtractData():
         """
         #Global variables
         self.SAMPLE_SIZE_IN_SECONDS = 4 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
-        self.SOUND_LOUDNESS_PERCENTAGE_LIMIT = 0.1
         self.MIN_REPRESENTATION_UNIT = 60
         self.MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
         self.prefix = destination_bucket_folder
         self.rec_datetime = rec_datetime
         self.dynamodb_item_key = dynamodb_item_key
-        self.sound_loudness_limit = 0
-        self.data_max_loudness = 0
+        self.sound_loudness_limit = 3276
+        self.DATA_MAX_LOUDNESS = 32767
         self.wav_files = []
         self.data_point_list = []
         self.sound_array = numpy.array([], dtype=numpy.int16)
@@ -47,16 +46,8 @@ class ExtractData():
     def sort_wave_files(self):
         for file in os.listdir():
             if file.endswith('.WAV'):
-                self.get_data_max_loudness(file)
                 self.wav_files.append(file)
         self.wav_files.sort()
-        self.sound_loudness_limit = self.data_max_loudness * self.SOUND_LOUDNESS_PERCENTAGE_LIMIT
-
-    def get_data_max_loudness(self, file):
-        self.samplerate, data = wavfile.read(file)
-        max_loudness = numpy.amax(data)
-        if (max_loudness > self.data_max_loudness):
-            self.data_max_loudness = max_loudness
     
     def get_sound_data(self):
         for file in self.wav_files:
@@ -64,7 +55,7 @@ class ExtractData():
             yield wavfile.read(file)
     
     def run_through_data(self):
-        samplerate, data = self.sound_data_generator.__next__()
+        self.samplerate, data = self.sound_data_generator.__next__()
         sample_list = self.get_data_samples(data)
         
         while sample_list:
@@ -145,7 +136,7 @@ class ExtractData():
     
     def normalize_max_loudness(self):
         for data in self.data_point_list:
-            data['maxLoudness'] = str(data['maxLoudness']/self.data_max_loudness)
+            data['maxLoudness'] = str(data['maxLoudness']/self.DATA_MAX_LOUDNESS)
        
     def upload_link_to_data_to_dynamodb(self, link):
         dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
