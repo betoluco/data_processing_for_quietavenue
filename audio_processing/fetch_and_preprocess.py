@@ -57,6 +57,7 @@ class FetchAndPreprocess():
         for file in os.listdir():
             if (file.endswith('.WAV')):
                 new_file = 'pcm_' + file
-                subprocess.run('ffmpeg -i ' + file + ' -acodec pcm_s16le ' + new_file, shell=True)
+                subprocess.run('ffmpeg -i ' + file + ' -acodec pcm_s16le -ac 1 ' + new_file, shell=True)
+                # 'ac 1 converts the file from stereo to mono'
                 os.remove(file)
                 
