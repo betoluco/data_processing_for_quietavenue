@@ -45,7 +45,7 @@ class ExtractData():
         
     def sort_wave_files(self):
         for file in os.listdir():
-            if file.endswith('.WAV'):
+            if file.endswith(('.WAV', '.wav')):
                 self.wav_files.append(file)
         self.wav_files.sort()
     
