@@ -4,37 +4,15 @@ import zipfile
 import subprocess
 
 class FetchAndPreprocess():
-    def __init__(self, bucket_folder):
+    def __init__(self, utilities):
         """Download audio files from s3 and preprocess them
         
         Download audio files from audiofilesource S3 bucket, unzip
         the files and tranform them with the help of FFMPEG
         """
-        self.BUCKET = 'quietavenuerawfiles'
-        self.prefix = bucket_folder
-        self.download_files_from_bucket()
+        utilities.download_files_from_bucket()
         self.unzip_files()
         self.convert_adpcm_to_pcm()
-        
-    def download_files_from_bucket(self):
-        """"Downloads bucket all the files inside a folder.
-
-        List all the objects inside a folder in the audiofilesource bucket, 
-        except the zero lenth object with the same name of the folder (folder object) 
-        created automatically by the S3 Management Console and downloads them to the current location.
-        """
-        client = boto3.client('s3')
-        zip_files = client.list_objects_v2(
-            Bucket=self.BUCKET, 
-            Prefix=self.prefix, 
-            StartAfter=self.prefix)  # Eliminates from the list the zero length object named like the
-                                # folder (folder object) created by the S3 Management Console.
-                                # The folder object it is the first element in the list and its
-                                # named equal to the folder (prefix)
-        for zip_file in zip_files['Contents']:
-            client.download_file(self.BUCKET,
-                                 zip_file['Key'],
-                                 os.path.basename(zip_file['Key'])) #basename eliminates the prefix
         
     def unzip_files(self):
         for file in os.listdir(os.getcwd()):
@@ -44,7 +22,6 @@ class FetchAndPreprocess():
                 zip_ref.extractall()
                 zip_ref.close()
                 os.remove(file)
-        
     
     def convert_adpcm_to_pcm(self):
         """Converts the .wav files from adpcm to pcm
