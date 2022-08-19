@@ -1,6 +1,5 @@
 import datetime
 import numpy
-import scipy.io.wavfile as wavfile
 import os
 
 class ExtractData():
@@ -8,7 +7,7 @@ class ExtractData():
         """Extract information from audio files for its use in a sound chart
         
         Process audio files, segmenting them in samples of SAMPLE_SIZE_IN_SECONDS 
-        (one minute) length. The maximum loudness is extracted and an MP3 file is
+        length. The maximum loudness is extracted and an MP3 file is
         generated and stored in the S3 quietavenue.com bucket from each of the segments.
         The maximum loudness, a link to the mp3 file, and the date and time in ISO 8601
         format of the sample, are appended in a list (data_point_list). Once all the audio
@@ -26,81 +25,86 @@ class ExtractData():
         
         #Global variables
         self.SAMPLE_SIZE_IN_SECONDS = 4 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
-        self.MIN_REPRESENTATION_UNIT = 60
-        self.MIDNIGHT = datetime.time(hour=0, minute=0, second=0)
-        
         self.rec_datetime = rec_datetime
-        self.sound_loudness_limit = 3276
-        self.data_point_list = []
         self.sound_array = numpy.array([], dtype=numpy.int16)
-        self.sound_time_array = []
+        self.NOISE_THRESHOLD = numpy.iinfo(self.sound_array.dtype).max * 0.5 #50% threshold for noise
+        self.GRAPH_THRESHOLD = numpy.iinfo(self.sound_array.dtype).max * 0.1 #10% threshold for the graph
+        self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
+        
+        self.data_points = []
+        self.graph_data = {}
         
         #Execute the program
         self.utilities = utilities
         self.wav_files = utilities.sort_wave_files()
-        self.sound_data_generator = utilities.get_sound_data(self.wav_files)
+        self.recodrings_data_generator = utilities.get_sound_data(self.wav_files)
         self.run_through_data()
         
-        
+    # Extract Samples
     def run_through_data(self):
-        self.samplerate, data = self.sound_data_generator.__next__()
+        self.samplerate, data = self.recodrings_data_generator.__next__()
         sample_list = self.get_data_samples(data)
         
         while sample_list:
             for array in sample_list[:-1]:
-                self.extract_sound(array)
-                self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+                self.process_data_samples(array)
                 
             last_array = sample_list.pop()
             data = self.append_data_to_sound_array(last_array)
             sample_list = self.get_data_samples(data)
-
-    def extract_sound(self, array):
-        
-        if numpy.amax(array) > self.sound_loudness_limit:
-            self.sound_time_array.append(self.rec_datetime)
-            self.sound_array = numpy.append(self.sound_array, array)
-            
-        if self.sound_time_array:
-            time_since_first_noise = (self.rec_datetime - self.sound_time_array[0]).total_seconds()
-            if time_since_first_noise >= self.MIN_REPRESENTATION_UNIT:
-                self.append_data_to_data_point_list()
-            
-        if (self.rec_datetime.time() == self.MIDNIGHT and self.sound_time_array):
-            self.append_data_to_data_point_list()
     
-    def append_data_to_data_point_list(self):
-        mp3_name = datetime.datetime.strftime(self.sound_time_array[0], '%Y-%m-%d_%H-%M-%S') + '.mp3'
-        mp3_link = self.utilities.create_mp3_audio_files(self.samplerate, self.sound_array, mp3_name)
-        self.data_point_list.append({
-            'time': self.sound_time_array[0].isoformat(),
-            'maxLoudness': numpy.amax(self.sound_array),
-            'mp3Link': mp3_link
-        })
-        self.sound_array = numpy.array([], dtype=numpy.int16)
-        self.sound_time_array = []
-            
     def get_data_samples(self, data):
         stop = len(data)
         sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * self.samplerate)
         samples = numpy.array_split(data, range(sample_size, stop, sample_size))
         return samples
     
-    def append_data_to_sound_array(self, last_array):
+    def append_data_to_sound_array(self, last_sample):
         try:
-            samplerate, data = self.sound_data_generator.__next__()
+            samplerate, data = self.recodrings_data_generator.__next__()
+            data = numpy.append(last_sample, data)
+            return data
         except StopIteration:
-            json_file = self.utilities.create_JSON(self.data_point_list)
+            json_file = self.utilities.create_JSON(self.graph_data)
             link_to_json_file = self.utilities.upload_file_to_bucket(json_file)
             self.utilities.upload_link_to_data_to_dynamodb(link_to_json_file)
-            for file in self.wav_files:
-                os.remove(file)
-            os.remove(json_file)
+            self.utilities.remove_wav_files(json_file)
             exit()
-        
-        data = numpy.append(last_array, data)
-        return data
-        
     
-       
+    # Process samples to extract data
+    def process_data_samples(self, recording_data):
+        self.data_points.append({
+            'time': self.rec_datetime.isoformat(),
+            'maxLoudness': numpy.amax(recording_data).item()
+        })
+        
+        if numpy.amax(recording_data) > self.NOISE_THRESHOLD:
+            self.sound_array = numpy.append(self.sound_array, recording_data)
+        
+        self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+        if self.rec_datetime >= self.day + datetime.timedelta(days=1):
+            mp3_name = datetime.datetime.strftime(self.day, '%Y-%m-%d') + '.mp3'
+            mp3_link = self.utilities.create_mp3_audio_files(self.samplerate, self.sound_array, mp3_name)
+            self.filter_data_points()
+            self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
+            self.reset_array()
+    
+    def reset_array(self):
+        self.sound_array = numpy.array([], dtype=numpy.int16)
+        self.data_points = []
+            
+    def filter_data_points(self):
+        daily_data = self.graph_data[self.day.isoformat()] = []
+        for i, point in enumerate(self.data_points):
+            try:
+                if( 
+                    point['maxLoudness'] > self.GRAPH_THRESHOLD or
+                    self.data_points[i-2]['maxLoudness'] > self.GRAPH_THRESHOLD or
+                    self.data_points[i-1]['maxLoudness'] > self.GRAPH_THRESHOLD or
+                    self.data_points[i+1]['maxLoudness'] > self.GRAPH_THRESHOLD or
+                    self.data_points[i+2]['maxLoudness'] > self.GRAPH_THRESHOLD
+                ):
+                    daily_data.append(point)
+            except: 
+                daily_data.append(point)
     

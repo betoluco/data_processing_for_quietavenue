@@ -14,5 +14,5 @@ bucket_destination_folder = '1020-Helm-Ln-Foster-City-CA-94404/'
 dynamodb_item_key =	'1020-Helm-Ln-Foster-City-Ca-94404'
 
 utilities = Utilities(bucket_source_folder, bucket_destination_folder , dynamodb_item_key) 
-#FetchAndPreprocess(utilities)
+FetchAndPreprocess(utilities)
 auxiliar = ExtractData(recording_start_datetime, utilities)

@@ -7,7 +7,6 @@ import datetime
 
 class Utilities():
     def __init__(self, bucket_source_folder, bucket_destination_folder , dynamodb_item_key):
-        self.DATA_MAX_LOUDNESS = 32767 #16 bit integer
         self.SOURCE_BUCKET = 'quietavenue-raw-data'
         self.DESTINATION_BUCKET = 'quietavenue.com'
         self.DYNAMO_DB = 'quietavenue.com'
@@ -36,15 +35,11 @@ class Utilities():
         return key
         
     def create_JSON(self, data_point_list):
-        self.normalize_max_loudness(data_point_list)
+        data_point_list
         file = open('graphData.json', 'w')
         json.dump(data_point_list, file)
         file.close()
         return file.name
-    
-    def normalize_max_loudness(self, data_point_list):
-        for data in data_point_list:
-            data['maxLoudness'] = str(data['maxLoudness']/self.DATA_MAX_LOUDNESS)
             
     def create_mp3_audio_files(self, samplerate, sound_array, mp3_name):
         wavfile.write('mp3_source.wav', samplerate, sound_array)
@@ -74,6 +69,12 @@ class Utilities():
         
         if response['ResponseMetadata']['HTTPStatusCode'] == 200 and 'Attributes' in response:
             print (response['Attributes'])
+    
+    def remove_wav_files(self, json_file):
+        for file in os.listdir():
+            if file.endswith(('.WAV', '.wav')):
+                os.remove(file)
+        os.remove(json_file)
     
     def download_files_from_bucket(self):
         """"Downloads bucket all the files inside a folder.
