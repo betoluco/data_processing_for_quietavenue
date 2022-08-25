@@ -5,15 +5,23 @@ import scipy.io.wavfile as wavfile
 import subprocess
 import datetime
 
+from fetch_and_preprocess import FetchAndPreprocess 
+from extract_data import ExtractData
+
 class Utilities():
-    def __init__(self, bucket_source_folder, bucket_destination_folder , dynamodb_item_key):
+    def __init__(self):
         self.SOURCE_BUCKET = 'quietavenue-raw-data'
-        self.DESTINATION_BUCKET = 'quietavenue.com'
-        self.DYNAMO_DB = 'quietavenue.com'
+        #The audiofilesource S3 bucket folder were the source files are in (1020-Helm-Ln-Foster-City-Ca-94404/audio/)
+        self.source_folder = '1020-Helm-Ln-Foster-City-Ca-94404/audio/'
+        self.DESTINATION_BUCKET = 'quietavenue-dev-s3bucketassets-1k6f7f4u682l1'
+        #The quietavenue.com S3 bucket folder were the generated audio files are going to be stored (1020-Helm-Ln-Foster-City-CA-94404/)
+        self.destination_folder = '1020-Helm-Ln-Foster-City-CA-94404/'
+        self.DYNAMO_DB = 'quietavenue-dev-SourceDynamoDBTable-4D1OHO9YOS2K'
+        #The key of the element in quietavenue DynamoDB table where the link to S3 bucket is going to be stored (1020-Helm-Ln-Foster-City-Ca-94404)
+        self.dynamodb_item_key =	'1020-Helm-Ln-Foster-City-Ca-94404'
+        self.recording_start_datetime = datetime.datetime(2020, 2, 11, 10, 00) #YYYY, MM, DD, HH, MM,
         
-        self.bucket_source_folder = bucket_source_folder
-        self.bucket_destination_folder = bucket_destination_folder
-        self.dynamodb_item_key = dynamodb_item_key
+        
         
     def sort_wave_files(self):
         wav_files = []
@@ -30,7 +38,7 @@ class Utilities():
         
     def upload_file_to_bucket(self, file, folder=""):
         s3_client = boto3.client('s3')
-        key = os.path.join('assets', self.bucket_destination_folder, folder, file)
+        key = os.path.join('assets', self.destination_folder, folder, file)
         s3_client.upload_file(file, self.DESTINATION_BUCKET, key)
         return key
         
@@ -86,8 +94,8 @@ class Utilities():
         client = boto3.client('s3')
         zip_files = client.list_objects_v2(
             Bucket=self.SOURCE_BUCKET, 
-            Prefix=self.bucket_source_folder, 
-            StartAfter=self.bucket_source_folder)  # Eliminates from the list the zero length object named like the
+            Prefix=self.source_folder, 
+            StartAfter=self.source_folder)  # Eliminates from the list the zero length object named like the
                                 # folder (folder object) created by the S3 Management Console.
                                 # The folder object it is the first element in the list and its
                                 # named equal to the folder (prefix)
@@ -95,3 +103,8 @@ class Utilities():
             client.download_file(self.SOURCE_BUCKET,
                                  zip_file['Key'],
                                  os.path.basename(zip_file['Key'])) #basename eliminates the prefix
+                                 
+
+utilities = Utilities() 
+#FetchAndPreprocess(utilities)
+ExtractData(utilities.recording_start_datetime, utilities)

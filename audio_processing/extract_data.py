@@ -68,7 +68,7 @@ class ExtractData():
             json_file = self.utilities.create_JSON(self.graph_data)
             link_to_json_file = self.utilities.upload_file_to_bucket(json_file)
             self.utilities.upload_link_to_data_to_dynamodb(link_to_json_file)
-            self.utilities.remove_wav_files(json_file)
+            #self.utilities.remove_wav_files(json_file)
             exit()
     
     # Process samples to extract data
@@ -96,15 +96,17 @@ class ExtractData():
     def filter_data_points(self):
         daily_data = self.graph_data[self.day.isoformat()] = []
         for i, point in enumerate(self.data_points):
-            try:
-                if( 
-                    point['maxLoudness'] > self.GRAPH_THRESHOLD or
-                    self.data_points[i-2]['maxLoudness'] > self.GRAPH_THRESHOLD or
-                    self.data_points[i-1]['maxLoudness'] > self.GRAPH_THRESHOLD or
-                    self.data_points[i+1]['maxLoudness'] > self.GRAPH_THRESHOLD or
-                    self.data_points[i+2]['maxLoudness'] > self.GRAPH_THRESHOLD
-                ):
-                    daily_data.append(point)
-            except: 
+            if( point['maxLoudness'] > self.GRAPH_THRESHOLD ):
+                if(self.data_points[i-1]['maxLoudness'] < self.GRAPH_THRESHOLD and i > 0):
+                    daily_data.append({
+                        'time': self.data_points[i-1]['time'],
+                        'maxLoudness':0
+                    })
+                    
                 daily_data.append(point)
-    
+                
+                if(self.data_points[i+1]['maxLoudness'] < self.GRAPH_THRESHOLD and i < len(self.data_points)):
+                    daily_data.append({
+                        'time': self.data_points[i+1]['time'],
+                        'maxLoudness':0
+                    })
