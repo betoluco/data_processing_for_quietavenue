@@ -1,0 +1,85 @@
+import boto3
+import os
+import json
+import scipy.io.wavfile as wavfile
+import subprocess
+
+from fetch_and_preprocess import FetchAndPreprocess 
+from extract_data import ExtractData
+
+class helpers():
+    def __init__(self, source_folder, destination_folder, dynamodb_item_key, environment='test'):
+        self.SOURCE_BUCKET = 'quietavenue-raw-data'
+        self.DESTINATION_BUCKET = 'quietavenue-dev-s3bucketassets-1k6f7f4u682l1'
+        self.DYNAMO_DB = 'quietavenue-dev-SourceDynamoDBTable-4D1OHO9YOS2K'
+        
+        self.source_folder = source_folder
+        self.destination_folder = destination_folder
+        self.dynamodb_item_key = dynamodb_item_key
+        
+        if environment == 'prod':
+            self.DESTINATION_BUCKET = 'quietavenue.com'
+            self.DYNAMO_DB = 'quietavenue.com'
+            
+        
+    def upload_file_to_bucket(self, file, folder=""):
+        s3_client = boto3.client('s3')
+        key = os.path.join('assets', self.destination_folder, folder, file)
+        s3_client.upload_file(file, self.DESTINATION_BUCKET, key)
+        return key
+        
+    def create_JSON(self, data_point_list):
+        data_point_list
+        file = open('graphData.json', 'w')
+        json.dump(data_point_list, file)
+        file.close()
+        return file.name
+            
+    def create_mp3_audio_files(self, samplerate, sound_array, mp3_name):
+        wavfile.write('mp3_source.wav', samplerate, sound_array)
+        subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
+        os.remove('mp3_source.wav')
+        mp3_link = self.upload_file_to_bucket(mp3_name, "audioFiles")
+        os.remove(mp3_name)
+        return mp3_link
+        
+    def upload_link_to_data_to_dynamodb(self, link):
+        dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
+        table = dynamodb.Table(self.DYNAMO_DB)
+        
+        response = table.update_item(
+            Key={
+                'PK': self.dynamodb_item_key,
+            },
+            UpdateExpression= 'set #ppty.graphDataLink=:d',
+            ExpressionAttributeValues={
+                ':d': link
+            },
+            ExpressionAttributeNames={
+                "#ppty": "estate"
+            },
+            ReturnValues="UPDATED_NEW"
+        )
+        
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200 and 'Attributes' in response:
+            print (response['Attributes'])
+    
+    def download_files_from_bucket(self):
+        """"Downloads bucket all the files inside a folder.
+
+        List all the objects inside a folder in the audiofilesource bucket, 
+        except the zero lenth object with the same name of the folder (folder object) 
+        created automatically by the S3 Management Console and downloads them to the current location.
+        """
+        client = boto3.client('s3')
+        zip_files = client.list_objects_v2(
+            Bucket=self.SOURCE_BUCKET, 
+            Prefix=self.source_folder, 
+            StartAfter=self.source_folder)  # Eliminates from the list the zero length object named like the
+                                # folder (folder object) created by the S3 Management Console.
+                                # The folder object it is the first element in the list and its
+                                # named equal to the folder (prefix)
+        for zip_file in zip_files['Contents']:
+            client.download_file(self.SOURCE_BUCKET,
+                                 zip_file['Key'],
+                                 os.path.basename(zip_file['Key'])) #basename eliminates the prefix
