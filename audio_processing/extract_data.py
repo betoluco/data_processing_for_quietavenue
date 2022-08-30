@@ -1,9 +1,10 @@
 import datetime
 import numpy
 import os
+import scipy.io.wavfile as wavfile
 
 class ExtractData():
-    def __init__(self, rec_datetime, utilities):
+    def __init__(self, rec_datetime, helpers):
         """Extract information from audio files for its use in a sound chart
         
         Process audio files, segmenting them in samples of SAMPLE_SIZE_IN_SECONDS 
@@ -22,76 +23,68 @@ class ExtractData():
         are appended in ISO 8601 format to it.
         """
         
-        
-        #Global variables
-        self.SAMPLE_SIZE_IN_SECONDS = 4 # 60 % SAMPLE_SIZE_IN_SECONDS = 0
-        self.rec_datetime = rec_datetime
-        self.sound_array = numpy.array([], dtype=numpy.int16)
+        self.SAMPLE_SIZE_IN_SECONDS = 4 
         self.NOISE_THRESHOLD = numpy.iinfo(self.sound_array.dtype).max * 0.5 #50% threshold for noise
         self.GRAPH_THRESHOLD = numpy.iinfo(self.sound_array.dtype).max * 0.1 #10% threshold for the graph
-        self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
+        self.rec_datetime = rec_datetime
+        self.graph_data = []
+        self.audio_data = numpy.array([], dtype=numpy.int16)
+        self.helpers = helpers
+      
+    
+    
         
-        self.data_points = []
-        self.graph_data = {}
-        
-        #Execute the program
-        self.utilities = utilities
-        self.wav_files = utilities.sort_wave_files()
-        self.recodrings_data_generator = utilities.get_sound_data(self.wav_files)
-        self.run_through_data()
+    def get_sound_data(self):
+        wav_files = self.sort_wave_files()
+        for file in wav_files:
+            print(file)
+            yield wavfile.read(file)
+            
+    def sort_wave_files(self):
+        wav_files = []
+        for file in os.listdir():
+            if file.endswith(('.WAV', '.wav')):
+                wav_files.append(file)
+        wav_files.sort()
+        return wav_files
         
     # Extract Samples
     def run_through_data(self):
-        self.samplerate, data = self.recodrings_data_generator.__next__()
-        sample_list = self.get_data_samples(data)
+        last_sample = numpy.array([], dtype=numpy.int16)
+        sound_data_generator = self.get_sound_data()
+        for samplerate, data in sound_data_generator:
+            concatenated_data = numpy.concatenate((last_sample, data), axis=None)
+            sample_list = self.get_data_samples(samplerate, concatenated_data)
+            last_sample = sample_list[-1]
+            self.process_data_samples(sample_list)
         
-        while sample_list:
-            for array in sample_list[:-1]:
-                self.process_data_samples(array)
-                
-            last_array = sample_list.pop()
-            data = self.append_data_to_sound_array(last_array)
-            sample_list = self.get_data_samples(data)
+        self.helpers.create_JSON(self.graph_data)
+        self.helpers.remove_wav_files()
     
-    def get_data_samples(self, data):
+    def get_data_samples(self, samplerate, data):
         stop = len(data)
-        sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * self.samplerate)
+        sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * samplerate)
         samples = numpy.array_split(data, range(sample_size, stop, sample_size))
         return samples
     
-    def append_data_to_sound_array(self, last_sample):
-        try:
-            samplerate, data = self.recodrings_data_generator.__next__()
-            data = numpy.append(last_sample, data)
-            return data
-        except StopIteration:
-            json_file = self.utilities.create_JSON(self.graph_data)
-            link_to_json_file = self.utilities.upload_file_to_bucket(json_file)
-            self.utilities.upload_link_to_data_to_dynamodb(link_to_json_file)
-            #self.utilities.remove_wav_files(json_file)
-            exit()
+    
+    
     
     # Process samples to extract data
     def process_data_samples(self, recording_data):
-        self.data_points.append({
-            'time': self.rec_datetime.isoformat(),
-            'maxLoudness': numpy.amax(recording_data).item()
-        })
+        for recording_data in recording_data_list[:-1]:
+            if numpy.amax(recording_data) > self.NOISE_THRESHOLD:
+                self.audio_data = numpy.append(self.audio_data, recording_data)
         
-        if numpy.amax(recording_data) > self.NOISE_THRESHOLD:
-            self.sound_array = numpy.append(self.sound_array, recording_data)
-        
-        self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
-        if self.rec_datetime >= self.day + datetime.timedelta(days=1):
-            mp3_name = datetime.datetime.strftime(self.day, '%Y-%m-%d') + '.mp3'
-            mp3_link = self.utilities.create_mp3_audio_files(self.samplerate, self.sound_array, mp3_name)
-            self.filter_data_points()
-            self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
-            self.reset_array()
+            self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+            if self.rec_datetime >= self.day + datetime.timedelta(days=1):
+                mp3_name = datetime.datetime.strftime(self.day, '%Y-%m-%d') + '.mp3'
+                mp3_link = self.utilities.create_mp3_audio_files(self.samplerate, self.sound_array, mp3_name)
+                
+                self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
+                self.reset_array()
     
-    def reset_array(self):
-        self.sound_array = numpy.array([], dtype=numpy.int16)
-        self.data_points = []
+   
             
     def filter_data_points(self):
         daily_data = self.graph_data[self.day.isoformat()] = []
@@ -110,3 +103,6 @@ class ExtractData():
                         'time': self.data_points[i+1]['time'],
                         'maxLoudness':0
                     })
+           
+        
+    

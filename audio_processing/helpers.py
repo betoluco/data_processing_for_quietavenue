@@ -4,14 +4,15 @@ import json
 import scipy.io.wavfile as wavfile
 import subprocess
 
-from fetch_and_preprocess import FetchAndPreprocess 
-from extract_data import ExtractData
 
 class helpers():
     def __init__(self, source_folder, destination_folder, dynamodb_item_key, environment='test'):
         self.SOURCE_BUCKET = 'quietavenue-raw-data'
         self.DESTINATION_BUCKET = 'quietavenue-dev-s3bucketassets-1k6f7f4u682l1'
         self.DYNAMO_DB = 'quietavenue-dev-SourceDynamoDBTable-4D1OHO9YOS2K'
+        self.JSON_FILE_NAME = 'graphData.json'
+        self.DYNAMO_DB_ATTRIBUTE_NAME = 'graphDataLink'
+        self.DESTINATION_BUCKET_FOLDER_FOR_AUDIOS = 'audioFiles'
         
         self.source_folder = source_folder
         self.destination_folder = destination_folder
@@ -30,16 +31,17 @@ class helpers():
         
     def create_JSON(self, data_point_list):
         data_point_list
-        file = open('graphData.json', 'w')
+        file = open(self.JSON_FILE_NAME, 'w')
         json.dump(data_point_list, file)
         file.close()
-        return file.name
+        self.upload_file_to_bucket(file)
+        self.upload_link_to_data_to_dynamodb(file.name)
             
     def create_mp3_audio_files(self, samplerate, sound_array, mp3_name):
         wavfile.write('mp3_source.wav', samplerate, sound_array)
         subprocess.run('ffmpeg -i mp3_source.wav -acodec libmp3lame ' + mp3_name, shell=True)
         os.remove('mp3_source.wav')
-        mp3_link = self.upload_file_to_bucket(mp3_name, "audioFiles")
+        mp3_link = self.upload_file_to_bucket(mp3_name, self.DESTINATION_BUCKET_FOLDER_FOR_AUDIOS)
         os.remove(mp3_name)
         return mp3_link
         
@@ -51,7 +53,7 @@ class helpers():
             Key={
                 'PK': self.dynamodb_item_key,
             },
-            UpdateExpression= 'set #ppty.graphDataLink=:d',
+            UpdateExpression= 'set #ppty.' + self.DYNAMO_DB_ATTRIBUTE_NAME + '=:d',
             ExpressionAttributeValues={
                 ':d': link
             },
@@ -83,3 +85,9 @@ class helpers():
             client.download_file(self.SOURCE_BUCKET,
                                  zip_file['Key'],
                                  os.path.basename(zip_file['Key'])) #basename eliminates the prefix
+
+    def remove_wav_files(self):
+        for file in os.listdir():
+            if file.endswith(('.WAV', '.wav')):
+                os.remove(file)
+        os.remove(self.JSON_FILE_NAME)
