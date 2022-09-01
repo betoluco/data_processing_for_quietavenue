@@ -1,9 +1,9 @@
-import datetime
+from datetime import datetime, timedelta
 import numpy
 import os
 import scipy.io.wavfile as wavfile
 
-class ExtractData():
+class extractData():
     def __init__(self, rec_datetime, helpers):
         """Extract information from audio files for its use in a sound chart
         
@@ -24,15 +24,13 @@ class ExtractData():
         """
         
         self.SAMPLE_SIZE_IN_SECONDS = 4 
-        self.NOISE_THRESHOLD = numpy.iinfo(self.sound_array.dtype).max * 0.5 #50% threshold for noise
-        self.GRAPH_THRESHOLD = numpy.iinfo(self.sound_array.dtype).max * 0.1 #10% threshold for the graph
+        self.NOISE_THRESHOLD = 0.5 #50% threshold for noise
+        self.GRAPH_THRESHOLD = 0.1 #10% threshold for the graph
         self.rec_datetime = rec_datetime
         self.graph_data = []
         self.audio_data = numpy.array([], dtype=numpy.int16)
         self.helpers = helpers
       
-    
-    
         
     def get_sound_data(self):
         wav_files = self.sort_wave_files()
@@ -54,55 +52,29 @@ class ExtractData():
         sound_data_generator = self.get_sound_data()
         for samplerate, data in sound_data_generator:
             concatenated_data = numpy.concatenate((last_sample, data), axis=None)
-            sample_list = self.get_data_samples(samplerate, concatenated_data)
-            last_sample = sample_list[-1]
-            self.process_data_samples(sample_list)
+            data_sample_list = self.get_data_samples(samplerate, concatenated_data)
+            last_sample = data_sample_list[-1]
+            for data_sample in data_sample_list[:-1]:
+                self.process_data_samples(data_sample)
         
         self.helpers.create_JSON(self.graph_data)
         self.helpers.remove_wav_files()
     
     def get_data_samples(self, samplerate, data):
-        stop = len(data)
         sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * samplerate)
-        samples = numpy.array_split(data, range(sample_size, stop, sample_size))
+        samples = numpy.array_split(data, range(sample_size, len(data), sample_size))
         return samples
     
-    
-    
-    
-    # Process samples to extract data
     def process_data_samples(self, recording_data):
-        for recording_data in recording_data_list[:-1]:
-            if numpy.amax(recording_data) > self.NOISE_THRESHOLD:
-                self.audio_data = numpy.append(self.audio_data, recording_data)
         
-            self.rec_datetime += datetime.timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
-            if self.rec_datetime >= self.day + datetime.timedelta(days=1):
-                mp3_name = datetime.datetime.strftime(self.day, '%Y-%m-%d') + '.mp3'
-                mp3_link = self.utilities.create_mp3_audio_files(self.samplerate, self.sound_array, mp3_name)
+        # if numpy.amax(recording_data) > numpy.iinfo(recording_data.dtype).max * self.NOISE_THRESHOLD:
+        #     mp3_name = datetime.datetime.strftime(self.rec_datetime.date(), '%Y-%m-%d') + '.mp3'
+        #     mp3_link = self.helpers.create_mp3_audio_files(samplerate, recording_data, mp3_name)
                 
-                self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
-                self.reset_array()
-    
-   
-            
-    def filter_data_points(self):
-        daily_data = self.graph_data[self.day.isoformat()] = []
-        for i, point in enumerate(self.data_points):
-            if( point['maxLoudness'] > self.GRAPH_THRESHOLD ):
-                if(self.data_points[i-1]['maxLoudness'] < self.GRAPH_THRESHOLD and i > 0):
-                    daily_data.append({
-                        'time': self.data_points[i-1]['time'],
-                        'maxLoudness':0
-                    })
-                    
-                daily_data.append(point)
+        if numpy.amax(recording_data) > numpy.iinfo(recording_data.dtype).max * self.GRAPH_THRESHOLD:
+            self.graph_data.append({
+                    'time': self.rec_datetime.isoformat(),
+                    'maxLoudness': int(numpy.amax(recording_data))
+                })
                 
-                if(self.data_points[i+1]['maxLoudness'] < self.GRAPH_THRESHOLD and i < len(self.data_points)):
-                    daily_data.append({
-                        'time': self.data_points[i+1]['time'],
-                        'maxLoudness':0
-                    })
-           
-        
-    
+        self.rec_datetime += timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)

@@ -13,6 +13,7 @@ class helpers():
         self.JSON_FILE_NAME = 'graphData.json'
         self.DYNAMO_DB_ATTRIBUTE_NAME = 'graphDataLink'
         self.DESTINATION_BUCKET_FOLDER_FOR_AUDIOS = 'audioFiles'
+        self.ROUTE_TO_DESTINATION_FOLDER = 'assets'
         
         self.source_folder = source_folder
         self.destination_folder = destination_folder
@@ -25,7 +26,7 @@ class helpers():
         
     def upload_file_to_bucket(self, file, folder=""):
         s3_client = boto3.client('s3')
-        key = os.path.join('assets', self.destination_folder, folder, file)
+        key = os.path.join(self.ROUTE_TO_DESTINATION_FOLDER, self.destination_folder, folder, file)
         s3_client.upload_file(file, self.DESTINATION_BUCKET, key)
         return key
         
@@ -34,7 +35,7 @@ class helpers():
         file = open(self.JSON_FILE_NAME, 'w')
         json.dump(data_point_list, file)
         file.close()
-        self.upload_file_to_bucket(file)
+        self.upload_file_to_bucket(file.name)
         self.upload_link_to_data_to_dynamodb(file.name)
             
     def create_mp3_audio_files(self, samplerate, sound_array, mp3_name):
@@ -45,7 +46,7 @@ class helpers():
         os.remove(mp3_name)
         return mp3_link
         
-    def upload_link_to_data_to_dynamodb(self, link):
+    def upload_link_to_data_to_dynamodb(self, file):
         dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
         table = dynamodb.Table(self.DYNAMO_DB)
         
@@ -55,7 +56,7 @@ class helpers():
             },
             UpdateExpression= 'set #ppty.' + self.DYNAMO_DB_ATTRIBUTE_NAME + '=:d',
             ExpressionAttributeValues={
-                ':d': link
+                ':d': os.path.join(self.ROUTE_TO_DESTINATION_FOLDER, self.destination_folder, file)
             },
             ExpressionAttributeNames={
                 "#ppty": "estate"
