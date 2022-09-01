@@ -27,7 +27,6 @@ class extractData():
         self.NOISE_THRESHOLD = 0.5 #50% threshold for noise
         self.GRAPH_THRESHOLD = 0.1 #10% threshold for the graph
         self.rec_datetime = rec_datetime
-        self.graph_data = []
         self.audio_data = numpy.array([], dtype=numpy.int16)
         self.helpers = helpers
       
@@ -47,34 +46,33 @@ class extractData():
         return wav_files
         
     # Extract Samples
-    def run_through_data(self):
-        last_sample = numpy.array([], dtype=numpy.int16)
+    def extract_data(self):
+        graph_data = []
+        last_samples = numpy.array([], dtype=numpy.int16)
+        max_data_value = numpy.iinfo(last_samples.dtype).max
         sound_data_generator = self.get_sound_data()
-        for samplerate, data in sound_data_generator:
-            concatenated_data = numpy.concatenate((last_sample, data), axis=None)
-            data_sample_list = self.get_data_samples(samplerate, concatenated_data)
-            last_sample = data_sample_list[-1]
-            for data_sample in data_sample_list[:-1]:
-                self.process_data_samples(data_sample)
         
-        self.helpers.create_JSON(self.graph_data)
-        self.helpers.remove_wav_files()
+        for samplerate, data in sound_data_generator:
+            concatenated_data = numpy.concatenate((last_samples, data), axis=None)
+            data_sample_list = self.get_data_samples(samplerate, concatenated_data)
+            last_samples = data_sample_list[-1]
+            for data_sample in data_sample_list[:-1]:
+                graph_data.append({
+                    'time': self.rec_datetime.isoformat(),
+                    'maxLoudness': int(numpy.amax(data_sample)/max_data_value)
+                })
+                self.rec_datetime += timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+                
+        self.helpers.create_JSON(graph_data)
+        
     
     def get_data_samples(self, samplerate, data):
         sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * samplerate)
         samples = numpy.array_split(data, range(sample_size, len(data), sample_size))
         return samples
-    
-    def process_data_samples(self, recording_data):
+
         
-        # if numpy.amax(recording_data) > numpy.iinfo(recording_data.dtype).max * self.NOISE_THRESHOLD:
-        #     mp3_name = datetime.datetime.strftime(self.rec_datetime.date(), '%Y-%m-%d') + '.mp3'
-        #     mp3_link = self.helpers.create_mp3_audio_files(samplerate, recording_data, mp3_name)
-                
-        if numpy.amax(recording_data) > numpy.iinfo(recording_data.dtype).max * self.GRAPH_THRESHOLD:
-            self.graph_data.append({
-                    'time': self.rec_datetime.isoformat(),
-                    'maxLoudness': int(numpy.amax(recording_data))
-                })
-                
-        self.rec_datetime += timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
+
+# if numpy.amax(recording_data) > numpy.iinfo(recording_data.dtype).max * self.NOISE_THRESHOLD:
+#     mp3_name = datetime.datetime.strftime(self.rec_datetime.date(), '%Y-%m-%d') + '.mp3'
+#     mp3_link = self.helpers.create_mp3_audio_files(samplerate, recording_data, mp3_name)

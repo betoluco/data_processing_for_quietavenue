@@ -13,5 +13,5 @@ dynamodb_item_key =	'1020-Helm-Ln-Foster-City-Ca-94404'
 recording_start_datetime = datetime(2020, 2, 11, 10, 00) #YYYY, MM, DD, HH, MM,
 
 new_helper = helpers(source_folder, destination_folder, dynamodb_item_key)
-fetchAndPreprocess(new_helper)
-extractData(recording_start_datetime, new_helper).run_through_data()
+# fetchAndPreprocess(new_helper)
+extractData(recording_start_datetime, new_helper).extract_data()
