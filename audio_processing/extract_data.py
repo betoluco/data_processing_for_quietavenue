@@ -23,7 +23,7 @@ class extractData():
         are appended in ISO 8601 format to it.
         """
         
-        self.SAMPLE_SIZE_IN_SECONDS = 4 
+        self.SAMPLE_SIZE_IN_SECONDS = 30 
         self.NOISE_THRESHOLD = 0.5 #50% threshold for noise
         self.GRAPH_THRESHOLD = 0.1 #10% threshold for the graph
         self.rec_datetime = rec_datetime
@@ -59,7 +59,7 @@ class extractData():
             for data_sample in data_sample_list[:-1]:
                 graph_data.append({
                     'time': self.rec_datetime.isoformat(),
-                    'maxLoudness': int(numpy.amax(data_sample)/max_data_value)
+                    'maxLoudness': float(numpy.amax(data_sample)/max_data_value)
                 })
                 self.rec_datetime += timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
                 
