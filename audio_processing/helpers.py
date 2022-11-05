@@ -10,8 +10,8 @@ class helpers():
         self.SOURCE_BUCKET = 'quietavenue-raw-data'
         self.DESTINATION_BUCKET = 'quietavenue-dev-s3bucketassets-1k6f7f4u682l1'
         self.DYNAMO_DB = 'quietavenue-dev-SourceDynamoDBTable-4D1OHO9YOS2K'
-        self.JSON_FILE_NAME = 'graphData.json'
-        self.DYNAMO_DB_ATTRIBUTE_NAME = 'graphDataLink'
+        self.JSON_FILE_NAME = 'audioData.json'
+        self.DYNAMO_DB_ATTRIBUTE_NAME = 'audioDataLink'
         self.DESTINATION_BUCKET_FOLDER_FOR_AUDIOS = 'audioFiles'
         self.ROUTE_TO_DESTINATION_FOLDER = 'assets'
         

@@ -23,14 +23,20 @@ class extractData():
         are appended in ISO 8601 format to it.
         """
         
-        self.SAMPLE_SIZE_IN_SECONDS = 30 
-        self.NOISE_THRESHOLD = 0.5 #50% threshold for noise
+        self.SAMPLE_SIZE_IN_SECONDS = 300
+        self.SAMPLE_SPLIT_SIZE_IN_SECONDS = 1
+        self.NOISE_THRESHOLD = 0.3 #50% threshold for noise
         self.rec_datetime = rec_datetime
         self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
-        self.audio_data = numpy.array([], dtype=numpy.int16)
+        self.daily_sound_data = numpy.array([], dtype=numpy.int16)
+        self.audio_data = {}
+        self.daily_graph_data = []
+        self.last_sample = numpy.array([], dtype=numpy.int16)
+        self.data_max_value = numpy.iinfo(self.last_sample.dtype).max
         self.helpers = helpers
-      
-        
+        self.samplerate = 14400
+        self.sound_start_in_seconds = 0
+    
     def get_sound_data(self):
         wav_files = self.sort_wave_files()
         for file in wav_files:
@@ -47,38 +53,55 @@ class extractData():
         
     # Extract Samples
     def extract_data(self):
-        graph_data = {}
-        daily_data = []
-        last_samples = numpy.array([], dtype=numpy.int16)
-        max_value = numpy.iinfo(last_samples.dtype).max
         sound_data_generator = self.get_sound_data()
         
-        for samplerate, data in sound_data_generator:
-            concatenated_data = numpy.concatenate((last_samples, data), axis=None)
-            data_sample_list = self.get_data_samples(samplerate, concatenated_data)
+        for self.samplerate, data in sound_data_generator:
+            concatenated_data = numpy.concatenate((self.last_sample, data), axis=None)
+            data_sample_list = self.array_split(concatenated_data, self.SAMPLE_SIZE_IN_SECONDS)
             last_samples = data_sample_list[-1]
             for data_sample in data_sample_list[:-1]:
                 self.rec_datetime += timedelta(seconds=self.SAMPLE_SIZE_IN_SECONDS)
-                self.organize_data_by_day(graph_data, daily_data, data_sample, max_value)
+                self.organize_data_by_day(data_sample)
         
-        graph_data[self.day.isoformat()] = daily_data
-        self.helpers.create_JSON(graph_data)
+        self.store_data()
+        self.helpers.create_JSON(self.audio_data)
         
-    def organize_data_by_day(self, graph_data, daily_data, data_sample, max_value):
+    def organize_data_by_day(self, data_sample):
         if self.rec_datetime > self.day + timedelta(days=1):
-            graph_data[self.day.isoformat()] = daily_data.copy()
-            daily_data.clear()
-            self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
-        daily_data.append({
-            'time': self.rec_datetime.isoformat(),
-            'maxLoudness': float(numpy.amax(data_sample)/max_value)
-        })
+            self.store_data()
+        data_point = {
+            'time': self.rec_datetime.isoformat()
+        }
+        self.analize_data(data_sample, data_point)
+        self.daily_graph_data.append(data_point)
     
-    def get_data_samples(self, samplerate, data):
-        sample_size = int(self.SAMPLE_SIZE_IN_SECONDS * samplerate)
-        samples = numpy.array_split(data, range(sample_size, len(data), sample_size))
-        return samples
+    def store_data(self):
+        mp3_name = datetime.strftime(self.day, '%Y-%m-%d') + '.mp3'
+        mp3_link = self.helpers.create_mp3_audio_files(self.samplerate, self.daily_sound_data, mp3_name)
+        self.audio_data[self.day.isoformat()] = {'mp3_link': mp3_link}
+        self.audio_data[self.day.isoformat()]['graph_data'] = self.daily_graph_data.copy()
+        self.daily_graph_data.clear()
+        self.daily_sound_data = numpy.array([], dtype=numpy.int16)
+        self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
+        self.sound_start_in_secods = 0
+            
+    def analize_data(self, data_sample, data_point):
+        parts = self.array_split(data_sample, self.SAMPLE_SPLIT_SIZE_IN_SECONDS)
+        maximum = numpy.amax(parts,axis=1)
+        data_point['maxLoudness'] = float(numpy.mean(maximum)/self.data_max_value)
+        self.get_sounds_from_samples(parts, data_point)
         
-# if numpy.amax(recording_data) > numpy.iinfo(recording_data.dtype).max * self.NOISE_THRESHOLD:
-#     mp3_name = datetime.datetime.strftime(self.rec_datetime.date(), '%Y-%m-%d') + '.mp3'
-#     mp3_link = self.helpers.create_mp3_audio_files(samplerate, recording_data, mp3_name)
+    def get_sounds_from_samples(self, parts, data_point):
+        sound_duration_in_seconds =  0
+        for part in parts:
+            if (numpy.amax(part) > self.NOISE_THRESHOLD * self.data_max_value):
+                sound_duration_in_seconds += self.SAMPLE_SPLIT_SIZE_IN_SECONDS
+                self.daily_sound_data = numpy.append(self.daily_sound_data, part)
+        if sound_duration_in_seconds:
+            data_point['sound_start'] = self.sound_start_in_seconds
+            data_point['sound_end'] = self.sound_start_in_seconds + sound_duration_in_seconds
+            self.sound_start_in_seconds += sound_duration_in_seconds
+        
+    def array_split(self, data, split_size_in_seconds):
+        split_size = int(split_size_in_seconds * self.samplerate)
+        return numpy.array_split(data, range(split_size, len(data), split_size))
