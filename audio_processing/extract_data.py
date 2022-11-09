@@ -83,7 +83,7 @@ class extractData():
         self.daily_graph_data.clear()
         self.daily_sound_data = numpy.array([], dtype=numpy.int16)
         self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
-        self.sound_start_in_secods = 0
+        self.sound_start_in_seconds = 0
             
     def analize_data(self, data_sample, data_point):
         parts = self.array_split(data_sample, self.SAMPLE_SPLIT_SIZE_IN_SECONDS)

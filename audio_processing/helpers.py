@@ -14,6 +14,7 @@ class helpers():
         self.DYNAMO_DB_ATTRIBUTE_NAME = 'audioDataLink'
         self.DESTINATION_BUCKET_FOLDER_FOR_AUDIOS = 'audioFiles'
         self.ROUTE_TO_DESTINATION_FOLDER = 'assets'
+        self.CLEAN_DATA = ('.WAV', '.wav', self.JSON_FILE_NAME)
         
         self.source_folder = source_folder
         self.destination_folder = destination_folder
@@ -87,8 +88,8 @@ class helpers():
                                  zip_file['Key'],
                                  os.path.basename(zip_file['Key'])) #basename eliminates the prefix
 
-    def remove_wav_files(self):
+    def clean_folder(self):
         for file in os.listdir():
-            if file.endswith(('.WAV', '.wav')):
+            if file.endswith(self.CLEAN_DATA):
                 os.remove(file)
         os.remove(self.JSON_FILE_NAME)
