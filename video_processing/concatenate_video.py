@@ -6,7 +6,7 @@ UPLOAD_BUCKET = 'videofilesource'
 RAW_DATA_BUCKET = 'quietavenue-raw-data'
 RAW_DATA_FOLDER = '1020-Helm-Ln-Foster-City-Ca-94404/video/'
 
-CONCATENATED_FILE_NAME = 'concatF.mp4'
+CONCATENATED_FILE_NAME = 'concatVideo.mp4'
 UPLOAD_BUCKET = 'videofilesource'
 
 MP4 = '.mp4'
