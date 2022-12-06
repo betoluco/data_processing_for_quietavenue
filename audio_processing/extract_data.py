@@ -24,8 +24,8 @@ class extractData():
         """
         
         self.SAMPLE_SIZE_IN_SECONDS = 300
-        self.SAMPLE_SPLIT_SIZE_IN_SECONDS = 1
-        self.NOISE_THRESHOLD = 0.3 #50% threshold for noise
+        self.SAMPLE_SPLIT_SIZE_IN_SECONDS = 3
+        self.NOISE_THRESHOLD = 0.43 #50% threshold for noise
         self.rec_datetime = rec_datetime
         self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
         self.daily_sound_data = numpy.array([], dtype=numpy.int16)
