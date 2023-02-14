@@ -78,8 +78,8 @@ class extractData():
     def store_data(self):
         mp3_name = datetime.strftime(self.day, '%Y-%m-%d') + '.mp3'
         mp3_link = self.helpers.create_mp3_audio_files(self.samplerate, self.daily_sound_data, mp3_name)
-        self.audio_data[self.day.isoformat()] = {'mp3_link': mp3_link}
-        self.audio_data[self.day.isoformat()]['graph_data'] = self.daily_graph_data.copy()
+        self.audio_data[self.day.isoformat()] = {'mp3Link': mp3_link}
+        self.audio_data[self.day.isoformat()]['graphData'] = self.daily_graph_data.copy()
         self.daily_graph_data.clear()
         self.daily_sound_data = numpy.array([], dtype=numpy.int16)
         self.day = self.rec_datetime.replace(hour=0, minute=0, second=0)
@@ -98,8 +98,8 @@ class extractData():
                 sound_duration_in_seconds += self.SAMPLE_SPLIT_SIZE_IN_SECONDS
                 self.daily_sound_data = numpy.append(self.daily_sound_data, part)
         if sound_duration_in_seconds:
-            data_point['sound_start'] = self.sound_start_in_seconds
-            data_point['sound_end'] = self.sound_start_in_seconds + sound_duration_in_seconds
+            data_point['soundStart'] = self.sound_start_in_seconds
+            data_point['soundEnd'] = self.sound_start_in_seconds + sound_duration_in_seconds
             self.sound_start_in_seconds += sound_duration_in_seconds
         
     def array_split(self, data, split_size_in_seconds):
