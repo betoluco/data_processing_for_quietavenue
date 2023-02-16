@@ -32,7 +32,7 @@ class extractData():
         self.audio_data = {}
         self.daily_graph_data = []
         self.last_sample = numpy.array([], dtype=numpy.int16)
-        self.data_max_value = numpy.iinfo(self.last_sample.dtype).max
+        self.numpy_int16_max_value = numpy.iinfo(self.last_sample.dtype).max
         self.helpers = helpers
         self.samplerate = 14400
         self.sound_start_in_seconds = 0
@@ -87,14 +87,14 @@ class extractData():
             
     def analize_data(self, data_sample, data_point):
         parts = self.array_split(data_sample, self.SAMPLE_SPLIT_SIZE_IN_SECONDS)
-        maximum = numpy.amax(parts,axis=1)
-        data_point['maxLoudness'] = float(numpy.mean(maximum)/self.data_max_value)
+        maximums = numpy.amax(parts, axis=1)
+        data_point['maxLoudness'] = float(numpy.mean(maximums)/self.numpy_int16_max_value)
         self.get_sounds_from_samples(parts, data_point)
         
     def get_sounds_from_samples(self, parts, data_point):
         sound_duration_in_seconds =  0
         for part in parts:
-            if (numpy.amax(part) > self.NOISE_THRESHOLD * self.data_max_value):
+            if (numpy.amax(part) > self.NOISE_THRESHOLD * self.numpy_int16_max_value):
                 sound_duration_in_seconds += self.SAMPLE_SPLIT_SIZE_IN_SECONDS
                 self.daily_sound_data = numpy.append(self.daily_sound_data, part)
         if sound_duration_in_seconds:
