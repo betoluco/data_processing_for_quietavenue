@@ -1,6 +1,5 @@
 # Description
-Extracts data out of audio files, creating a JSON file used to draw
-grphics with d3.js
+Process audio and video data for it's visualization in quietavenu
 
 # Setup
 
@@ -50,7 +49,7 @@ git clone https://github.com/betoluco/data_processing_for_quietavenue.git
 ```bash
 sudo apt-get update
 sudo apt install ffmpeg
-cd data_processing_for_quietavenue/audio_processing
+cd data_processing_for_quietavenue
 sudo pip3 install -r requirements.txt
 ```
 # To ejecute:
