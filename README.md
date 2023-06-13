@@ -19,7 +19,7 @@ Process audio and video data for it's visualization in quietavenu
    1. Selece the Cloud9 instance
    2. Go to Actions -> Security -> Modify IAM Role
    3. In the drop down list select the role previously created
-More info on [aws docs](https://docs.aws.amazon.com/cloud9/latest/user-guide/credentials.html#credentials-temporary-attach-console) and [youtube viedo](https://www.youtube.com/watch?v=C4AyfV3Z3xs)
+More info on [aws docs](https://docs.aws.amazon.com/cloud9/latest/user-guide/credentials.html#credentials-temporary-attach-console) and [youtube video](https://www.youtube.com/watch?v=C4AyfV3Z3xs)
 
 5. Click on AWS Cloud9 in menu bar -> Preferences -> AWS Settings -> turn off "AWS manage temporary credentials"
 
