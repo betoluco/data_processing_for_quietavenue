@@ -6,7 +6,7 @@ import subprocess
 
 
 class helpers():
-    def __init__(self, source_folder, destination_folder, dynamodb_item_key, environment='test'):
+    def __init__(self, source_folder, destination_folder, dynamodb_item_key, environment):
         self.SOURCE_BUCKET = 'quietavenue-raw-data'
         self.DESTINATION_BUCKET = 'quietavenue-dev-s3bucketassets-1k6f7f4u682l1'
         self.DYNAMO_DB = 'quietavenue-dev-SourceDynamoDBTable-4D1OHO9YOS2K'
@@ -21,8 +21,8 @@ class helpers():
         self.dynamodb_item_key = dynamodb_item_key
         
         if environment == 'prod':
-            self.DESTINATION_BUCKET = 'quietavenue.com'
-            self.DYNAMO_DB = 'quietavenue.com'
+            self.DESTINATION_BUCKET = 'quietavenue-prod-s3bucketassets-d2nifjn1egsk'
+            self.DYNAMO_DB = 'quietavenue-prod-SourceDynamoDBTable-55RWHSP2EBVF'
             
         
     def upload_file_to_bucket(self, file, folder=""):
