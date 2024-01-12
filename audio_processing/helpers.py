@@ -13,7 +13,7 @@ class helpers():
         self.JSON_FILE_NAME = 'audioData.json'
         self.DYNAMO_DB_ATTRIBUTE_NAME = 'audioDataLink'
         self.DESTINATION_BUCKET_FOLDER_FOR_AUDIOS = 'audioFiles'
-        self.ROUTE_TO_DESTINATION_FOLDER = 'assets'
+        self.ROUTE_TO_DESTINATION_FOLDER = '/assets' # The slash '/' at the start creates root relative links 
         self.CLEAN_DATA = ('.WAV', '.wav', self.JSON_FILE_NAME)
         
         self.source_folder = source_folder
